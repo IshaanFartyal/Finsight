@@ -1,0 +1,260 @@
+"""
+Finsight as a desktop app (experiment).
+
+Starts the normal Finsight (Streamlit) app in the background and shows
+it in its own window instead of a browser tab. Nothing in Finsight
+itself is changed: this file only starts it and displays it.
+
+Try it without building anything:
+
+    python desktop/launcher.py
+
+Build a Windows program from it (see desktop/README.md):
+
+    pyinstaller desktop/finsight.spec --noconfirm
+
+How it works: this program runs twice. The first copy opens the window.
+It starts a second copy of itself with "--run-server", which runs
+Streamlit; Streamlit and the window each need to be the main program of
+their own process. When the window closes, the server is stopped.
+"""
+
+import os
+import socket
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+APP_NAME = "Finsight"
+
+SERVER_FLAG = "--run-server"
+
+# How long to wait for Finsight to start before showing an error.
+STARTUP_TIMEOUT_SECONDS = 90
+
+LOADING_PAGE = """
+<html>
+  <body style="margin:0; height:100vh; display:flex; align-items:center;
+               justify-content:center; background:#07111f; color:#f4f7fb;
+               font-family:'Segoe UI', sans-serif;">
+    <div style="text-align:center;">
+      <div style="font-size:28px; font-weight:600;">Finsight</div>
+      <div style="margin-top:10px; color:#9fb3c8;">Starting…</div>
+    </div>
+  </body>
+</html>
+"""
+
+ERROR_PAGE = """
+<html>
+  <body style="margin:0; padding:40px; background:#07111f; color:#f4f7fb;
+               font-family:'Segoe UI', sans-serif;">
+    <h2>Finsight could not start</h2>
+    <p style="color:#9fb3c8;">{reason}</p>
+  </body>
+</html>
+"""
+
+
+def is_built():
+    """True when running as a built program instead of from the code."""
+
+    return getattr(sys, "frozen", False)
+
+
+def app_folder():
+    """
+    The folder that holds app.py, styles/ and sample_data/: inside the
+    built program, or the project folder when running from the code.
+    """
+
+    if is_built():
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+
+    return Path(__file__).resolve().parent.parent
+
+
+def free_port():
+    """A port on this computer that nothing else is using."""
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+# ============================================================
+# THE SERVER COPY: runs Streamlit
+# ============================================================
+
+def run_server(port):
+    folder = app_folder()
+
+    # app.py opens "styles/style.css" relative to the current folder.
+    os.chdir(folder)
+    sys.path.insert(0, str(folder))
+
+    # A windowed program has no console to print to.
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")
+
+    # In this experiment nothing is saved between runs: inside a built
+    # program, Finsight's settings files would land in the program's own
+    # folder. A real desktop version needs a proper place for them.
+    os.environ.setdefault("FINSIGHT_PRIVATE", "true")
+
+    from streamlit.web import cli as streamlit_cli
+
+    sys.argv = [
+        "streamlit",
+        "run",
+        str(folder / "app.py"),
+        # A built program looks like a development copy of Streamlit to
+        # Streamlit itself; without this it refuses the settings below.
+        "--global.developmentMode=false",
+        "--server.headless=true",
+        f"--server.port={port}",
+        # Only this computer can connect.
+        "--server.address=127.0.0.1",
+        "--server.fileWatcherType=none",
+        "--browser.gatherUsageStats=false",
+        # Hide Streamlit's own "Deploy" button and developer menu.
+        "--client.toolbarMode=minimal",
+    ]
+
+    sys.exit(streamlit_cli.main())
+
+
+# ============================================================
+# THE WINDOW COPY: starts the server and shows it
+# ============================================================
+
+def start_server(port):
+    if is_built():
+        command = [sys.executable, SERVER_FLAG, str(port)]
+    else:
+        command = [sys.executable, str(Path(__file__).resolve()), SERVER_FLAG, str(port)]
+
+    # Don't flash a black console window on Windows.
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+    return subprocess.Popen(command, creationflags=flags)
+
+
+def wait_until_ready(url, server, timeout=STARTUP_TIMEOUT_SECONDS):
+    """
+    Wait until Finsight answers. Raises RuntimeError if the server stops
+    or takes too long.
+    """
+
+    deadline = time.monotonic() + timeout
+
+    while time.monotonic() < deadline:
+        if server.poll() is not None:
+            raise RuntimeError(
+                f"The background process stopped (exit code {server.returncode})."
+            )
+
+        try:
+            with urllib.request.urlopen(f"{url}/_stcore/health", timeout=2) as reply:
+                if reply.status == 200:
+                    return
+
+        except (urllib.error.URLError, OSError):
+            pass
+
+        time.sleep(0.3)
+
+    raise RuntimeError(f"Finsight did not start within {timeout} seconds.")
+
+
+def stop_server(server):
+    if server.poll() is not None:
+        return
+
+    server.terminate()
+
+    try:
+        server.wait(timeout=5)
+
+    except subprocess.TimeoutExpired:
+        server.kill()
+
+
+def show_in_browser(url, server):
+    """Fallback when the window library (pywebview) isn't installed."""
+
+    import webbrowser
+
+    wait_until_ready(url, server)
+    webbrowser.open(url)
+
+    print(f"{APP_NAME} is running at {url}. Press Ctrl+C to stop.")
+
+    try:
+        server.wait()
+
+    except KeyboardInterrupt:
+        pass
+
+
+def show_in_window(webview, url, server):
+    # Needed for the CSV and Excel export buttons.
+    webview.settings["ALLOW_DOWNLOADS"] = True
+
+    window = webview.create_window(
+        APP_NAME,
+        html=LOADING_PAGE,
+        width=1400,
+        height=900,
+        min_size=(900, 600),
+    )
+
+    started = time.monotonic()
+
+    def load_app():
+        try:
+            wait_until_ready(url, server)
+
+        except RuntimeError as error:
+            window.load_html(ERROR_PAGE.format(reason=error))
+            return
+
+        print(f"{APP_NAME} ready after {time.monotonic() - started:.1f} seconds.")
+        window.load_url(url)
+
+    # Blocks until the window is closed.
+    webview.start(load_app)
+
+
+def main():
+    port = free_port()
+    url = f"http://127.0.0.1:{port}"
+
+    server = start_server(port)
+
+    try:
+        try:
+            import webview
+
+        except ImportError:
+            show_in_browser(url, server)
+
+        else:
+            show_in_window(webview, url, server)
+
+    finally:
+        stop_server(server)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) >= 3 and sys.argv[1] == SERVER_FLAG:
+        run_server(int(sys.argv[2]))
+
+    else:
+        main()

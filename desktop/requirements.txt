@@ -1,0 +1,3 @@
+# Only needed for the desktop experiment (desktop/README.md).
+pywebview>=5.0
+pyinstaller>=6.0
