@@ -58,6 +58,7 @@ finsight/
 ├── sample_data/        # synthetic statements for testing
 ├── styles/style.css
 ├── tests/              # pytest suite
+├── .devcontainer/      # setup for GitHub Codespaces
 └── .github/workflows/  # runs the tests on every push
 ```
 
@@ -80,6 +81,8 @@ Install dependencies:
 ```bash
 python -m pip install -r requirements.txt
 ```
+
+To explore or edit the code without installing anything, open it in [GitHub Codespaces](https://codespaces.new/IshaanFartyal/finsight): it sets everything up and starts the app in your browser. For your own bank data, run Finsight on your own computer.
 
 ## Run the App
 
