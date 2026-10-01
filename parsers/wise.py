@@ -1,5 +1,8 @@
 import pandas as pd
 
+from parsers.dates import parse_dates
+from parsers.schema import STANDARD_COLUMNS
+
 
 def parse_wise(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -46,10 +49,7 @@ def parse_wise(df: pd.DataFrame) -> pd.DataFrame:
     # CLEAN BASIC DATA
     # ----------------------------
 
-    df["date"] = pd.to_datetime(
-        df["date"],
-        errors="coerce"
-    )
+    df["date"] = parse_dates(df["date"])
 
     df["description"] = (
         df["description"]
@@ -119,6 +119,22 @@ def parse_wise(df: pd.DataFrame) -> pd.DataFrame:
         else pd.Series("", index=df.index)
     )
 
+    # Keep Wise's own description and payment reference as
+    # extra text for the categorizer before the description
+    # is replaced by the merchant name below.
+    reference = (
+        df["Payment Reference"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        if "Payment Reference" in df.columns
+        else pd.Series("", index=df.index)
+    )
+
+    df["details"] = (
+        df["description"] + " " + reference
+    ).str.strip()
+
     # Prefer merchant name for card transactions
     has_merchant = merchant != ""
 
@@ -157,6 +173,22 @@ def parse_wise(df: pd.DataFrame) -> pd.DataFrame:
     # ADD STANDARD FIELDS
     # ----------------------------
 
+    # Wise keeps one balance per currency.
+    df["account"] = "Wise " + df["currency"]
+
+    df["counterparty_account"] = (
+        df["Payee Account Number"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        if "Payee Account Number" in df.columns
+        else ""
+    )
+
+    # Wise's "Total Fees" appear to already be included in "Amount",
+    # so they are not added again. Verify against a real export.
+    df["fee"] = 0.0
+
     df["bank"] = "Wise"
     df["category"] = "Uncategorized"
 
@@ -167,16 +199,4 @@ def parse_wise(df: pd.DataFrame) -> pd.DataFrame:
 
     df = df.sort_values("date")
 
-    standard_columns = [
-        "date",
-        "description",
-        "amount",
-        "currency",
-        "bank",
-        "transaction_type",
-        "fee",
-        "balance",
-        "category",
-    ]
-
-    return df[standard_columns].reset_index(drop=True)
+    return df[STANDARD_COLUMNS].reset_index(drop=True)

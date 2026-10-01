@@ -1,5 +1,8 @@
 import pandas as pd
 
+from parsers.dates import parse_dates
+from parsers.schema import STANDARD_COLUMNS
+
 
 def parse_revolut(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -60,10 +63,7 @@ def parse_revolut(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     # Convert data types
-    df["date"] = pd.to_datetime(
-        df["date"],
-        errors="coerce"
-    )
+    df["date"] = parse_dates(df["date"])
 
     df["description"] = (
         df["description"]
@@ -103,6 +103,18 @@ def parse_revolut(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     # Add standardized fields
+    df["details"] = ""
+
+    # Revolut exports don't include an IBAN, so identify the account
+    # by product and currency, e.g. "Revolut Current EUR".
+    df["account"] = (
+        "Revolut "
+        + df["Product"].fillna("").astype(str).str.strip()
+        + " "
+        + df["currency"]
+    ).str.replace(r"\s+", " ", regex=True).str.strip()
+
+    df["counterparty_account"] = ""
     df["bank"] = "Revolut"
     df["category"] = "Uncategorized"
 
@@ -115,16 +127,5 @@ def parse_revolut(df: pd.DataFrame) -> pd.DataFrame:
     df = df.sort_values("date")
 
     # FinSight standard schema
-    standard_columns = [
-        "date",
-        "description",
-        "amount",
-        "currency",
-        "bank",
-        "transaction_type",
-        "fee",
-        "balance",
-        "category",
-    ]
 
-    return df[standard_columns].reset_index(drop=True)
+    return df[STANDARD_COLUMNS].reset_index(drop=True)

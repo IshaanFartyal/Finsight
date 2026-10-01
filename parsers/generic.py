@@ -2,6 +2,9 @@ import re
 
 import pandas as pd
 
+from parsers.dates import parse_dates
+from parsers.schema import STANDARD_COLUMNS
+
 
 def _find_column(columns, candidates):
     """
@@ -175,6 +178,27 @@ def parse_generic(df: pd.DataFrame) -> pd.DataFrame:
         ]
     )
 
+    account_column = _find_column(
+        df.columns,
+        [
+            "account",
+            "account number",
+            "rekening",
+            "own account",
+        ]
+    )
+
+    counterparty_account_column = _find_column(
+        df.columns,
+        [
+            "counterparty account",
+            "counterparty iban",
+            "contra account",
+            "tegenrekening",
+            "payee account number",
+        ]
+    )
+
     type_column = _find_column(
         df.columns,
         [
@@ -207,11 +231,8 @@ def parse_generic(df: pd.DataFrame) -> pd.DataFrame:
     # DATE
     # --------------------------------------------------
 
-    df["date"] = pd.to_datetime(
-        df[date_column],
-        errors="coerce",
-        dayfirst=True
-    )
+    # Year-first (ISO) dates are never read day-first; see parsers/dates.py
+    df["date"] = parse_dates(df[date_column])
 
     # --------------------------------------------------
     # DESCRIPTION
@@ -359,6 +380,25 @@ def parse_generic(df: pd.DataFrame) -> pd.DataFrame:
     # STANDARD FIELDS
     # --------------------------------------------------
 
+    df["details"] = ""
+
+    if account_column is not None:
+        df["account"] = (
+            df[account_column].fillna("").astype(str).str.strip()
+        )
+    else:
+        df["account"] = ""
+
+    if counterparty_account_column is not None:
+        df["counterparty_account"] = (
+            df[counterparty_account_column]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+    else:
+        df["counterparty_account"] = ""
+
     df["bank"] = "Undetected bank"
     df["fee"] = 0.0
     df["category"] = "Uncategorized"
@@ -374,20 +414,8 @@ def parse_generic(df: pd.DataFrame) -> pd.DataFrame:
             "No valid transactions could be interpreted."
         )
 
-    standard_columns = [
-        "date",
-        "description",
-        "amount",
-        "currency",
-        "bank",
-        "transaction_type",
-        "fee",
-        "balance",
-        "category",
-    ]
-
     return (
-        df[standard_columns]
+        df[STANDARD_COLUMNS]
         .sort_values("date")
         .reset_index(drop=True)
     )

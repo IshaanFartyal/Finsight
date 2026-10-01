@@ -35,6 +35,15 @@ exports/
 private_data/
 data/
 
+# Personal category rules (can contain employer/client names)
+rules.json
+
+# Personal settings (your own IBANs and names)
+settings.json
+
+# Your manual corrections (merchant names, transaction details)
+corrections.json
+
 # Keep synthetic portfolio samples
 !sample_data/
 !sample_data/*.csv

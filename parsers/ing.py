@@ -2,6 +2,9 @@
 
 import pandas as pd
 
+from parsers.dates import parse_dates
+from parsers.schema import STANDARD_COLUMNS
+
 
 def parse_ing(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -50,11 +53,7 @@ def parse_ing(df: pd.DataFrame) -> pd.DataFrame:
     # ING format: YYYYMMDD
     # ----------------------------
 
-    df["date"] = pd.to_datetime(
-        df["Datum"].astype(str),
-        format="%Y%m%d",
-        errors="coerce"
-    )
+    df["date"] = parse_dates(df["Datum"])
 
     # ----------------------------
     # DESCRIPTION
@@ -86,6 +85,11 @@ def parse_ing(df: pd.DataFrame) -> pd.DataFrame:
         df["description"] == "",
         "description"
     ] = "Unknown transaction"
+
+    # Mededelingen often holds the useful text
+    # (e.g. "SALARY SEPTEMBER", "NS REIZEN"), so keep it
+    # for the categorizer.
+    df["details"] = messages
 
     # ----------------------------
     # AMOUNT
@@ -162,6 +166,14 @@ def parse_ing(df: pd.DataFrame) -> pd.DataFrame:
         .str.strip()
     )
 
+    df["account"] = (
+        df["Rekening"].fillna("").astype(str).str.strip()
+    )
+
+    df["counterparty_account"] = (
+        df["Tegenrekening"].fillna("").astype(str).str.strip()
+    )
+
     df["fee"] = 0.0
     df["bank"] = "ING"
     df["category"] = "Uncategorized"
@@ -174,16 +186,4 @@ def parse_ing(df: pd.DataFrame) -> pd.DataFrame:
     # Sort oldest -> newest
     df = df.sort_values("date")
 
-    standard_columns = [
-        "date",
-        "description",
-        "amount",
-        "currency",
-        "bank",
-        "transaction_type",
-        "fee",
-        "balance",
-        "category",
-    ]
-
-    return df[standard_columns].reset_index(drop=True)
+    return df[STANDARD_COLUMNS].reset_index(drop=True)

@@ -1,26 +1,60 @@
+"""
+Financial metrics.
+
+When a "flow" column is present (see flows.py):
+- income   = transactions classified as income
+- expenses = expenses minus refunds, plus fees
+- transfers between the user's own accounts are left out of both
+
+Without a "flow" column, positive amounts count as income and negative
+amounts as expenses.
+"""
+
+import pandas as pd
+
+from flows import EXPENSE, INCOME, REFUND, TRANSFER
+
+FEES_CATEGORY = "Fees"
+
+
+def _flow(df):
+    if "flow" in df.columns:
+        return df["flow"]
+
+    return df["amount"].apply(lambda value: INCOME if value > 0 else EXPENSE)
+
+
+def _fees(df):
+    if "fee" not in df.columns:
+        return 0.0
+
+    return float(pd.to_numeric(df["fee"], errors="coerce").fillna(0).abs().sum())
+
+
 def calculate_summary(df):
     """
     Calculate basic financial summary metrics.
 
     Returns:
         income
-        expenses
+        expenses      (net of refunds, including fees)
         savings
         savings_rate
+        refunds
+        fees
+        transfers_in  (money arriving from your own accounts)
+        transfers_out (money sent to your own accounts)
     """
 
-    income = df.loc[
-        df["amount"] > 0,
-        "amount"
-    ].sum()
+    flow = _flow(df)
+    amount = df["amount"]
 
-    expenses = abs(
-        df.loc[
-            df["amount"] < 0,
-            "amount"
-        ].sum()
-    )
+    income = float(amount[flow == INCOME].sum())
+    spent = float(abs(amount[flow == EXPENSE].sum()))
+    refunds = float(amount[flow == REFUND].sum())
+    fees = _fees(df)
 
+    expenses = spent - refunds + fees
     savings = income - expenses
 
     if income > 0:
@@ -28,36 +62,77 @@ def calculate_summary(df):
     else:
         savings_rate = 0
 
+    transfers = amount[flow == TRANSFER]
+
     return {
         "income": income,
         "expenses": expenses,
         "savings": savings,
         "savings_rate": savings_rate,
+        "refunds": refunds,
+        "fees": fees,
+        "transfers_in": float(transfers[transfers > 0].sum()),
+        "transfers_out": float(abs(transfers[transfers < 0].sum())),
     }
 
 
 def calculate_spending_by_category(df):
     """
-    Calculate total spending per category.
+    Calculate net spending per category.
+
+    Refunds reduce the category they belong to (a refund from Albert
+    Heijn lowers Groceries). Fees appear as their own category.
     """
 
-    return (
-        df[df["amount"] < 0]
-        .groupby("category")["amount"]
+    flow = _flow(df)
+
+    spending = (
+        -df.loc[flow.isin([EXPENSE, REFUND]), "amount"]
+        .groupby(df.loc[flow.isin([EXPENSE, REFUND]), "category"])
         .sum()
-        .abs()
-        .sort_values(ascending=False)
     )
+
+    fees = _fees(df)
+
+    if fees > 0:
+        spending.loc[FEES_CATEGORY] = spending.get(FEES_CATEGORY, 0) + fees
+
+    spending = spending[spending > 0]
+    spending.name = "amount"
+
+    return spending.sort_values(ascending=False)
 
 
 def calculate_monthly_spending(df):
     """
-    Calculate total spending per month.
+    Calculate total spending per month (net of refunds, including fees).
     """
 
-    return (
-        df[df["amount"] < 0]
-        .groupby("month")["amount"]
-        .sum()
-        .abs()
+    return calculate_monthly_finances(df).set_index("month")["expenses"]
+
+
+def calculate_monthly_finances(df):
+    """
+    Income, expenses and savings for every month in df.
+
+    Requires a "month" column.
+    """
+
+    rows = []
+
+    for month, month_df in df.groupby("month", sort=True):
+        summary = calculate_summary(month_df)
+
+        rows.append(
+            {
+                "month": month,
+                "income": summary["income"],
+                "expenses": summary["expenses"],
+                "savings": summary["savings"],
+            }
+        )
+
+    return pd.DataFrame(
+        rows,
+        columns=["month", "income", "expenses", "savings"],
     )

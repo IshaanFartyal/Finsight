@@ -271,3 +271,73 @@ def create_monthly_trends_chart(
     )
 
     return style_plotly_chart(fig)
+
+def create_category_comparison_chart(changes):
+    """
+    Horizontal bars: each category's spending this month next to its
+    recent monthly average.
+    """
+
+    changes = changes.sort_values("this_month")
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Bar(
+            y=changes["category"],
+            x=changes["average"],
+            name="Recent average",
+            orientation="h",
+            marker_color=FINSIGHT_COLORS["grey"],
+            hovertemplate=(
+                "Average: €%{x:,.2f}"
+                "<extra></extra>"
+            ),
+        )
+    )
+
+    fig.add_trace(
+        go.Bar(
+            y=changes["category"],
+            x=changes["this_month"],
+            name="This month",
+            orientation="h",
+            marker_color=[
+                FINSIGHT_COLORS["red"] if change > 0 and notable
+                else FINSIGHT_COLORS["green"] if change < 0 and notable
+                else FINSIGHT_COLORS["blue"]
+                for change, notable in zip(
+                    changes["change"],
+                    changes["notable"],
+                )
+            ],
+            hovertemplate=(
+                "This month: €%{x:,.2f}"
+                "<extra></extra>"
+            ),
+        )
+    )
+
+    fig.update_layout(
+        barmode="group",
+        height=max(260, 48 * len(changes)),
+        bargap=0.3,
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "left",
+            "x": 0,
+        },
+    )
+
+    fig.update_xaxes(
+        tickprefix="€",
+        gridcolor="rgba(130,151,173,0.15)",
+    )
+
+    fig.update_yaxes(
+        showgrid=False,
+    )
+
+    return style_plotly_chart(fig)
