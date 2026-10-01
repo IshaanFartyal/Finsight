@@ -227,6 +227,12 @@ else:
         ),
     )
 
+    st.sidebar.caption(
+        "Upload only **your own** statements in one session. Finsight "
+        "treats every uploaded account as yours: it adds them up as one "
+        "person's finances, and money moving between them is a transfer."
+    )
+
 if "use_demo" not in st.session_state:
     st.session_state.use_demo = False
 

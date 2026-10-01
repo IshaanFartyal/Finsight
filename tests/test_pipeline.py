@@ -1,6 +1,6 @@
 from categorizer import DEFAULT_CATEGORY_RULES
 from corrections import SCOPE_MERCHANT, SCOPE_TRANSACTION, add_correction, empty_corrections
-from flows import default_settings
+from flows import default_settings, suggest_own_accounts
 from pipeline import build_transactions
 from tests.helpers import SAMPLE_DATA
 
@@ -170,3 +170,35 @@ def test_savings_keep_their_category_and_dont_lower_the_savings_rate():
 
     assert summary["expenses"] == 100.0
     assert summary["savings_rate"] == 0.95
+
+
+def test_own_account_question_sample():
+    # A sample made to show "Are these accounts yours?" in Settings:
+    # a reserve account and a friend (money goes both ways) are asked
+    # about; the webshop that refunded an order and the landlord aren't.
+    df, _, _ = build(None, "own_account_question_sample.csv")
+
+    suggestions = suggest_own_accounts(df, default_settings())
+
+    assert dict(zip(suggestions["name"], suggestions["account"])) == {
+        "J Jansen": "NL77BANK0222222222",
+        "Sam de Boer": "NL66BANK0111111111",
+    }
+
+    # Before the user confirms, payments to the reserve account are not
+    # transfers...
+    assert "transfer" not in set(df.loc[df["description"] == "J Jansen", "flow"])
+
+    # ...and after confirming they all are.
+    settings = default_settings()
+    settings["own_accounts"] = ["NL77BANK0222222222"]
+
+    confirmed, _, _ = build_transactions(
+        files("own_account_question_sample.csv"),
+        DEFAULT_CATEGORY_RULES,
+        settings,
+        empty_corrections(),
+    )
+
+    assert set(confirmed.loc[confirmed["description"] == "J Jansen", "flow"]) == {"transfer"}
+    assert suggest_own_accounts(confirmed, settings)["name"].tolist() == ["Sam de Boer"]

@@ -20,6 +20,7 @@ BANK_NAMES = {
     "revolut": "Revolut",
     "wise": "Wise",
     "ing": "ING",
+    "rabobank": "Rabobank",
     "unknown": "Undetected bank",
 }
 

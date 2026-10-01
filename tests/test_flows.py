@@ -1,15 +1,18 @@
 import pandas as pd
 
 from flows import (
+    accounts_to_remember,
     EXPENSE,
     INCOME,
     REFUND,
     TRANSFER,
     classify_flows,
     default_settings,
+    is_account_number,
     load_settings,
     normalize_account,
     save_settings,
+    suggest_own_accounts,
 )
 
 
@@ -76,6 +79,37 @@ def test_own_account_numbers_ignore_spacing_and_case():
         ],
         settings,
     ) == [TRANSFER, EXPENSE]
+
+
+def test_accounts_of_uploaded_statements_are_own_accounts():
+    # Money to the savings account is a transfer even when the savings
+    # statement doesn't cover that day (no matching pair to find).
+    assert flows_for(
+        [
+            {"date": "2026-08-01", "description": "To savings", "amount": -300.0, "counterparty_account": "NL55RABO0987654321"},
+            {"date": "2026-09-30", "description": "Interest", "amount": 4.17, "account": "NL55RABO0987654321"},
+            {"date": "2026-09-02", "description": "Landlord", "amount": -650.0, "counterparty_account": "NL44DUWO0123456789"},
+        ]
+    ) == [TRANSFER, INCOME, EXPENSE]
+
+
+def test_accounts_of_unrecognized_files_are_not_own_accounts_automatically():
+    # The generic parser guesses which column is the user's account, so
+    # Finsight asks first (see the suggestions below).
+    assert flows_for(
+        [
+            {"date": "2026-08-01", "description": "To savings", "amount": -300.0, "counterparty_account": "NL55RABO0987654321"},
+            {"date": "2026-09-30", "description": "Interest", "amount": 4.17, "account": "NL55RABO0987654321", "bank": "Undetected bank"},
+        ]
+    ) == [EXPENSE, INCOME]
+
+
+def test_account_labels_are_not_account_numbers():
+    assert is_account_number("NL12 INGB 0123 4567 89")
+    assert is_account_number("V12345678")
+    assert not is_account_number("Revolut Current EUR")
+    assert not is_account_number("Wise EUR")
+    assert not is_account_number("")
 
 
 def test_own_name():
@@ -176,6 +210,7 @@ def test_settings_round_trip(tmp_path):
     path = tmp_path / "settings.json"
     settings = {
         "own_accounts": ["NL12INGB0123456789"],
+        "not_own_accounts": ["NL20BANK0000000001"],
         "own_names": ["J de Vries"],
         "transfer_keywords": ["SPAARREKENING"],
         "exchange_rates": {"USD": 0.92},
@@ -207,3 +242,173 @@ def test_investments_are_transfers_not_spending():
             {"date": "2026-09-02", "description": "Tikkie pizza", "amount": -12.0, "category": "Payment Requests"},
         ]
     ) == [TRANSFER, EXPENSE]
+
+
+# ------------------------------------------------------------
+# Suggested own accounts
+# ------------------------------------------------------------
+
+SAVINGS = "NL55RABO0987654321"
+FRIEND = "NL66BANK0111111111"
+
+
+def suggestions_for(rows, settings=None):
+    df = make_transactions(rows)
+    df["flow"] = classify_flows(df, settings)
+
+    return suggest_own_accounts(df, settings)
+
+
+def test_suggests_account_of_an_unrecognized_statement():
+    result = suggestions_for(
+        [
+            {"date": "2026-08-01", "description": "J Jansen", "amount": -300.0, "counterparty_account": SAVINGS},
+            {"date": "2026-09-30", "description": "Interest", "amount": 4.17, "account": SAVINGS, "bank": "Undetected bank"},
+        ]
+    )
+
+    assert result["account"].tolist() == [SAVINGS]
+    assert result["reason"].tolist() == [
+        "You uploaded a statement that seems to be for this account"
+    ]
+    assert result["sent"].tolist() == [300.0]
+    assert result["transactions"].tolist() == [1]
+
+
+def test_account_of_a_recognized_statement_needs_no_question():
+    result = suggestions_for(
+        [
+            {"date": "2026-08-01", "description": "J Jansen", "amount": -300.0, "counterparty_account": SAVINGS},
+            {"date": "2026-09-30", "description": "Interest", "amount": 4.17, "account": SAVINGS},
+        ]
+    )
+
+    assert result.empty
+
+
+def test_suggests_account_with_money_going_both_ways():
+    result = suggestions_for(
+        [
+            {"date": "2026-06-01", "description": "J Jansen", "amount": -300.0, "counterparty_account": SAVINGS},
+            {"date": "2026-07-01", "description": "J Jansen", "amount": -300.0, "counterparty_account": SAVINGS},
+            {"date": "2026-08-15", "description": "J Jansen", "amount": 150.0, "counterparty_account": SAVINGS},
+        ]
+    )
+
+    assert result["account"].tolist() == [SAVINGS]
+    assert result["reason"].tolist() == ["Money goes both ways"]
+    assert result["sent"].tolist() == [600.0]
+    assert result["received"].tolist() == [150.0]
+
+
+def test_one_way_payments_are_not_suggested():
+    # A landlord is paid every month, but never pays back.
+    result = suggestions_for(
+        [
+            {"date": f"2026-0{month}-01", "description": "Landlord", "amount": -650.0, "counterparty_account": FRIEND}
+            for month in range(1, 7)
+        ]
+    )
+
+    assert result.empty
+
+
+def test_too_few_transactions_are_not_suggested():
+    result = suggestions_for(
+        [
+            {"date": "2026-06-01", "description": "Sam", "amount": -20.0, "counterparty_account": FRIEND},
+            {"date": "2026-06-20", "description": "Sam", "amount": 20.0, "counterparty_account": FRIEND},
+        ]
+    )
+
+    assert result.empty
+
+
+def test_shop_that_refunded_an_order_is_not_suggested():
+    result = suggestions_for(
+        [
+            {"date": "2026-06-01", "description": "Bol.com", "amount": -54.95, "category": "Shopping", "counterparty_account": FRIEND},
+            {"date": "2026-06-10", "description": "Bol.com", "amount": -20.00, "category": "Shopping", "counterparty_account": FRIEND},
+            {"date": "2026-06-20", "description": "Bol.com", "amount": 54.95, "category": "Shopping", "counterparty_account": FRIEND},
+        ]
+    )
+
+    assert result.empty
+
+
+def test_payment_processor_shared_by_many_names_is_not_suggested():
+    result = suggestions_for(
+        [
+            {"date": "2026-06-01", "description": "Bakery via Mollie", "amount": -5.0, "counterparty_account": FRIEND},
+            {"date": "2026-06-02", "description": "Bike shop via Mollie", "amount": -80.0, "counterparty_account": FRIEND},
+            {"date": "2026-06-03", "description": "Florist via Mollie", "amount": -15.0, "counterparty_account": FRIEND},
+            {"date": "2026-06-09", "description": "Bike shop via Mollie", "amount": 80.0, "counterparty_account": FRIEND},
+        ]
+    )
+
+    assert result.empty
+
+
+def test_answered_accounts_are_not_suggested_again():
+    rows = [
+        {"date": "2026-06-01", "description": "J Jansen", "amount": -300.0, "counterparty_account": SAVINGS},
+        {"date": "2026-07-01", "description": "J Jansen", "amount": -300.0, "counterparty_account": SAVINGS},
+        {"date": "2026-08-15", "description": "J Jansen", "amount": 150.0, "counterparty_account": SAVINGS},
+    ]
+
+    declined = default_settings()
+    declined["not_own_accounts"] = ["nl55 rabo 0987 6543 21"]
+
+    confirmed = default_settings()
+    confirmed["own_accounts"] = [SAVINGS]
+
+    assert suggestions_for(rows, declined).empty
+    assert suggestions_for(rows, confirmed).empty
+
+
+def test_transfers_already_recognized_are_not_suggested():
+    # Both halves uploaded and matched as a pair: nothing left to ask.
+    result = suggestions_for(
+        [
+            {"date": "2026-09-10", "description": "J Jansen", "amount": -300.0, "counterparty_account": SAVINGS},
+            {"date": "2026-09-10", "description": "J Jansen", "amount": 300.0, "account": SAVINGS, "counterparty_account": "NL12INGB0123456789"},
+        ]
+    )
+
+    assert result.empty
+
+
+def test_no_suggestions_without_transactions():
+    assert suggest_own_accounts(None).empty
+
+
+# ------------------------------------------------------------
+# Remembering uploaded accounts (opt-in)
+# ------------------------------------------------------------
+
+def test_accounts_to_remember_are_the_recognized_statement_accounts():
+    df = make_transactions(
+        [
+            {"date": "2026-09-01", "description": "Shop", "amount": -5.0},
+            {"date": "2026-09-02", "description": "Interest", "amount": 4.17, "account": SAVINGS},
+            {"date": "2026-09-03", "description": "Coffee", "amount": -3.0, "account": "Revolut Current EUR", "bank": "Revolut"},
+            {"date": "2026-09-04", "description": "Other", "amount": -3.0, "account": FRIEND, "bank": "Undetected bank"},
+        ]
+    )
+
+    assert accounts_to_remember(df, default_settings()) == [
+        "NL12INGB0123456789",
+        SAVINGS,
+    ]
+
+
+def test_saved_accounts_are_not_offered_again():
+    df = make_transactions(
+        [{"date": "2026-09-01", "description": "Shop", "amount": -5.0}]
+    )
+
+    settings = default_settings()
+    settings["own_accounts"] = ["nl12 ingb 0123 4567 89"]
+
+    assert accounts_to_remember(df, settings) == []
+    assert accounts_to_remember(None, settings) == []

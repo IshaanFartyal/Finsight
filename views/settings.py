@@ -4,13 +4,178 @@ import pandas as pd
 import streamlit as st
 
 from currency import HOME_CURRENCY, clean_rates
-from flows import save_settings
+from flows import accounts_to_remember, save_settings, suggest_own_accounts
 from ui import (
     HOSTED,
+    is_private,
     parse_lines,
     persist,
     storage_note,
 )
+
+
+def _render_account_suggestions(df):
+    """
+    Ask whether accounts that look like the user's own really are.
+
+    Finsight never treats an account as the user's own by itself: an
+    account only counts once the user confirms it here or types it in
+    the list above.
+    """
+    settings = st.session_state.transfer_settings
+    suggestions = suggest_own_accounts(df, settings)
+
+    if suggestions.empty:
+        return
+
+    st.markdown("**Are these accounts yours?**")
+
+    st.caption(
+        "These accounts might be your own, for example because money "
+        "regularly goes both ways. Tick the ones that are yours and "
+        "payments to and from them become transfers instead of income "
+        "or spending. For accounts you didn't upload a statement for, "
+        "Finsight never decides this for you."
+    )
+
+    table = suggestions.copy()
+    table.insert(0, "selected", False)
+
+    edited = st.data_editor(
+        table,
+        key="settings_account_suggestions",
+        hide_index=True,
+        width="stretch",
+        disabled=[column for column in table.columns if column != "selected"],
+        column_config={
+            "selected": st.column_config.CheckboxColumn("Select"),
+            "account": "Account",
+            "name": "Name",
+            "transactions": "Transactions",
+            "sent": st.column_config.NumberColumn("Sent", format="€%.2f"),
+            "received": st.column_config.NumberColumn("Received", format="€%.2f"),
+            "reason": "Why Finsight asks",
+        },
+    )
+
+    selected = edited.loc[edited["selected"], "account"].tolist()
+
+    mine, not_mine = st.columns(2)
+
+    add_to = None
+
+    if mine.button(
+        "These are my accounts",
+        disabled=not selected,
+        type="primary",
+        key="settings_suggestions_mine",
+    ):
+        add_to = "own_accounts"
+
+    if not_mine.button(
+        "Not mine, don't ask again",
+        disabled=not selected,
+        key="settings_suggestions_not_mine",
+    ):
+        add_to = "not_own_accounts"
+
+    if add_to is None:
+        return
+
+    new_settings = {
+        **settings,
+        add_to: list(settings.get(add_to, [])) + selected,
+    }
+
+    st.session_state.transfer_settings = new_settings
+    persist(save_settings, new_settings)
+
+    # Rebuild the widgets from the new settings: the list of own
+    # accounts above, and this table without the answered accounts.
+    for key in ("settings_own_accounts", "settings_account_suggestions"):
+        st.session_state.pop(key, None)
+
+    st.rerun()
+
+
+def _render_remember_accounts(df):
+    """
+    Opt-in: add the uploaded accounts to the saved list of own accounts.
+
+    Without this, an account only counts as the user's own while its
+    statement is uploaded, and nothing about it is saved.
+    """
+    settings = st.session_state.transfer_settings
+    accounts = accounts_to_remember(df, settings)
+
+    if not accounts:
+        return
+
+    # "No" hides the question for these accounts until Finsight is
+    # closed. Nothing is saved: remembering that you declined would
+    # mean storing the account numbers after all.
+    declined = st.session_state.get("remember_accounts_declined", [])
+
+    if set(accounts) <= set(declined):
+        return
+
+    st.markdown("**Remember these accounts?**")
+
+    st.caption(
+        "These accounts only count as yours while their statements are "
+        "uploaded: "
+        + ", ".join(accounts)
+        + ". Remember them to keep recognizing transfers to them next "
+        "time, even when you upload only some of your statements."
+    )
+
+    if is_private():
+        st.caption(
+            "🔒 Private session: your answer is kept until you close "
+            "Finsight and is not saved to disk."
+        )
+
+    elif HOSTED:
+        st.caption(storage_note())
+
+    else:
+        st.caption(
+            "They are added to your own account numbers at the top of "
+            "this page and saved on this computer only. You can remove "
+            "them there at any time."
+        )
+
+    yes, no, _ = st.columns([1, 1, 3])
+
+    if no.button(
+        "No, don't remember",
+        help="Hides this question until you close Finsight. Nothing is saved.",
+        key="settings_remember_accounts_no",
+    ):
+        st.session_state.remember_accounts_declined = sorted(
+            set(declined) | set(accounts)
+        )
+        st.rerun()
+
+    if not yes.button(
+        "Yes, remember them",
+        type="primary",
+        key="settings_remember_accounts",
+    ):
+        return
+
+    new_settings = {
+        **settings,
+        "own_accounts": list(settings.get("own_accounts", [])) + accounts,
+    }
+
+    st.session_state.transfer_settings = new_settings
+    persist(save_settings, new_settings)
+
+    # Rebuild the list of own accounts at the top from the new settings.
+    st.session_state.pop("settings_own_accounts", None)
+
+    st.rerun()
 
 
 def render(data):
@@ -31,9 +196,9 @@ def render(data):
 
     st.caption(
         "Money moving between your own accounts is a transfer, "
-        "not income or spending. Finsight recognizes most transfers "
-        "automatically when you upload statements from all your "
-        "accounts. These settings catch the rest."
+        "not income or spending. The accounts of the statements you "
+        "upload count as yours automatically. Use these settings for "
+        "accounts you don't upload a statement for."
     )
 
     if HOSTED:
@@ -83,6 +248,8 @@ def render(data):
         st.session_state.transfer_settings = updated_settings
         persist(save_settings, updated_settings)
         st.rerun()
+
+    _render_account_suggestions(df)
 
     # ----------------------------------------------------
     # CURRENCIES
@@ -173,6 +340,13 @@ def render(data):
             "Accounts in your uploaded statements"
         )
 
+        st.caption(
+            "Finsight treats these as your own accounts, so only upload "
+            "your own statements in one session. Accounts from a bank "
+            "Finsight doesn't recognize are the exception: it asks about "
+            "those above."
+        )
+
         accounts = (
             df.groupby(["bank", "account"], dropna=False)
             .agg(
@@ -188,3 +362,5 @@ def render(data):
             width="stretch",
             hide_index=True,
         )
+
+        _render_remember_accounts(df)

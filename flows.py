@@ -13,7 +13,11 @@ that earlier steps left as plain income/expense:
                    and refunds; money to your own investment or savings
                    accounts (category "Savings & Investments").
 2. Own accounts    money sent to or received from one of the user's
-                   own account numbers.
+                   own accounts: the accounts of the uploaded statements
+                   (Finsight asks the user to upload only their own),
+                   plus the account numbers listed in Settings.
+                   Other accounts that look like the user's own are
+                   only suggested (suggest_own_accounts).
 3. Own names       payments to/from the account holder's own name.
 4. Keywords        user-editable transfer keywords (e.g. SPAARREKENING).
 5. Matching pairs  across uploaded statements: money leaving one account
@@ -42,6 +46,8 @@ SETTINGS_PATH = Path(__file__).parent / "settings.json"
 DEFAULT_TRANSFER_SETTINGS = {
     # IBANs/account numbers that belong to the user.
     "own_accounts": [],
+    # Suggested accounts the user said are not theirs: not asked again.
+    "not_own_accounts": [],
     # Names the user's own accounts are held under.
     "own_names": [],
     # Text that marks a transfer between the user's own accounts.
@@ -134,6 +140,70 @@ def normalize_account(value):
     return re.sub(r"[^A-Z0-9]", "", str(value).upper())
 
 
+def is_account_number(value):
+    """
+    True for an IBAN or account number ("NL12INGB0123456789",
+    "V12345678"), False for a label like "Revolut Current EUR".
+    """
+
+    value = normalize_account(value)
+
+    return len(value) >= 6 and sum(character.isdigit() for character in value) >= 4
+
+
+# The "bank" the generic parser gives to files it doesn't recognize.
+UNDETECTED_BANK = "Undetected bank"
+
+
+def statement_accounts(df, recognized=True):
+    """
+    The account numbers the uploaded statements belong to, normalized.
+
+    recognized=True:  statements from a bank Finsight knows, where it is
+                      certain which column holds the user's own account.
+    recognized=False: files read by the generic parser, where "Account"
+                      is a guess and could be the other party's.
+    """
+
+    accounts = _column(df, "account")
+    known_bank = _column(df, "bank") != UNDETECTED_BANK
+
+    return {
+        normalize_account(account)
+        for account in accounts[known_bank == recognized].unique()
+        if is_account_number(account)
+    }
+
+
+def accounts_to_remember(df, settings):
+    """
+    Accounts of recognized statements that are not in the user's saved
+    list of own accounts yet, as written in the statement. These are
+    what "Remember these accounts" in Settings adds to that list.
+    """
+
+    if df is None or df.empty:
+        return []
+
+    saved = {
+        normalize_account(account)
+        for account in settings.get("own_accounts", [])
+    }
+
+    recognized = statement_accounts(df)
+
+    remember = []
+
+    for account in _column(df, "account").str.strip().unique():
+        key = normalize_account(account)
+
+        if key in recognized and key not in saved:
+            remember.append(account)
+            saved.add(key)
+
+    return sorted(remember)
+
+
 def _contains_any(text, phrases):
     """Case-insensitive whole-phrase search."""
 
@@ -176,6 +246,145 @@ def account_key(df):
 # Defined in merchants.py; imported here so existing code that uses
 # flows.normalize_merchant keeps working.
 normalize_merchant = _normalize_merchant
+
+
+# ============================================================
+# SUGGESTIONS
+# ============================================================
+
+# How many transactions with money going both ways before Finsight asks
+# whether an account is the user's own.
+SUGGESTION_MIN_TRANSACTIONS = 3
+
+# An own account is held under one name (or two: "J Jansen" and
+# "J. Jansen e/o"). An account many names share is a payment processor.
+SUGGESTION_MAX_NAMES = 2
+
+# Categories that say nothing about what a payment was for.
+UNCATEGORIZED = {"", "Other", "Uncategorized", "Transfer"}
+
+REASON_UPLOADED = "You uploaded a statement that seems to be for this account"
+REASON_BOTH_WAYS = "Money goes both ways"
+
+SUGGESTION_COLUMNS = [
+    "account",
+    "name",
+    "transactions",
+    "sent",
+    "received",
+    "reason",
+]
+
+
+def suggest_own_accounts(df, settings=None, min_transactions=SUGGESTION_MIN_TRANSACTIONS):
+    """
+    Accounts that might be the user's own, for the user to confirm.
+
+    Nothing is treated as a transfer because of this list: it only
+    feeds the question "is this account yours?" in Settings.
+
+    An account is suggested when money was sent to or received from it,
+    those transactions are not transfers yet, and either:
+
+    - a statement for that account was uploaded, but from a bank
+      Finsight doesn't recognize, so it isn't sure which column holds
+      the user's own account (recognized statements count as the
+      user's own without asking), or
+    - money went both ways at least min_transactions times in total
+      (typical for a savings account; also for a friend, which is why
+      the user decides). Shops are left out: accounts whose payments
+      mostly have a spending category (a webshop that refunded an
+      order) or that many different names share (a payment processor).
+
+    Accounts already listed as the user's own, or declined before, are
+    left out. Returns a DataFrame with SUGGESTION_COLUMNS.
+    """
+
+    if settings is None:
+        settings = default_settings()
+
+    empty = pd.DataFrame(columns=SUGGESTION_COLUMNS)
+
+    if df is None or df.empty or "counterparty_account" not in df.columns:
+        return empty
+
+    answered = {
+        normalize_account(account)
+        for key in ("own_accounts", "not_own_accounts")
+        for account in settings.get(key, [])
+    }
+
+    # Accounts of recognized statements are the user's own already;
+    # only accounts from unrecognized files still need the question.
+    uploaded = statement_accounts(df, recognized=False)
+
+    rows = pd.DataFrame(
+        {
+            "shown": _column(df, "counterparty_account").str.strip(),
+            "name": _column(df, "description").str.strip(),
+            "amount": df["amount"],
+            "flow": _column(df, "flow"),
+            "category": _column(df, "category"),
+        }
+    )
+
+    rows["key"] = rows["shown"].apply(normalize_account)
+
+    rows = rows[
+        rows["shown"].apply(is_account_number)
+        & ~rows["key"].isin(answered)
+        & (rows["flow"] != TRANSFER)
+    ]
+
+    suggestions = []
+
+    for key, group in rows.groupby("key", sort=False):
+        sent = float(-group.loc[group["amount"] < 0, "amount"].sum())
+        received = float(group.loc[group["amount"] > 0, "amount"].sum())
+
+        if key in uploaded:
+            reason = REASON_UPLOADED
+
+        elif (
+            sent > 0
+            and received > 0
+            and len(group) >= min_transactions
+            and group["name"].apply(normalize_merchant).nunique() <= SUGGESTION_MAX_NAMES
+            and (group["category"].isin(UNCATEGORIZED)).mean() >= 0.5
+        ):
+            reason = REASON_BOTH_WAYS
+
+        else:
+            continue
+
+        suggestions.append(
+            {
+                "account": group["shown"].mode().iloc[0],
+                "name": group["name"].mode().iloc[0],
+                "transactions": len(group),
+                "sent": round(sent, 2),
+                "received": round(received, 2),
+                "reason": reason,
+            }
+        )
+
+    if not suggestions:
+        return empty
+
+    result = pd.DataFrame(suggestions, columns=SUGGESTION_COLUMNS)
+
+    # Uploaded statements first (the strongest sign), then the busiest.
+    result["_uploaded"] = result["reason"] == REASON_UPLOADED
+
+    return (
+        result.sort_values(
+            ["_uploaded", "transactions", "account"],
+            ascending=[False, False, True],
+            kind="stable",
+        )
+        .drop(columns="_uploaded")
+        .reset_index(drop=True)
+    )
 
 
 # ============================================================
@@ -266,6 +475,11 @@ def classify_flows(df, settings=None):
         for account in settings.get("own_accounts", [])
         if normalize_account(account)
     }
+
+    # ...plus the accounts the uploaded statements belong to. With a
+    # payment and a savings account uploaded, money moved between them
+    # is a transfer even if the other half falls outside the export.
+    own_accounts |= statement_accounts(df)
 
     if own_accounts:
         counterparty = _column(df, "counterparty_account").apply(normalize_account)

@@ -11,6 +11,7 @@ from parsers.detector import detect_bank
 from parsers.generic import parse_generic
 from parsers.ing import parse_ing
 from parsers.loader import load_bank_csv
+from parsers.rabobank import parse_rabobank
 from parsers.revolut import parse_revolut
 from parsers.wise import parse_wise
 
@@ -18,6 +19,7 @@ PARSERS = {
     "revolut": parse_revolut,
     "wise": parse_wise,
     "ing": parse_ing,
+    "rabobank": parse_rabobank,
 }
 
 # Columns that identify the same transaction appearing in two exports.

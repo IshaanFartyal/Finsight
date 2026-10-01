@@ -14,10 +14,11 @@ The demo runs on made-up statements from an ING and a Revolut account. Uploads a
 
 ## Features
 
-- **Multi-bank import**: Revolut, Wise and ING (payment and savings accounts) parsers plus a generic fallback, with automatic separator, encoding and date-format detection. Overlapping exports are de-duplicated.
+- **Multi-bank import**: Revolut, Wise, ING and Rabobank parsers (payment and savings accounts) plus a generic fallback, with automatic separator, encoding and date-format detection. Overlapping exports are de-duplicated.
 - **Income, expense, transfer or refund**: transfers between your own accounts (including investments such as DEGIRO) are left out of income and spending; refunds reduce the category they belong to; bank fees count as expenses.
 - **Categorization**: 87 keywords in 16 categories, matched on cleaned merchant names (`SumUp *Bakkerij Jansen B.V.` → `Bakkerij Jansen`).
 - **To Review**: every unrecognized merchant is listed once; one choice categorizes all its transactions, now and in future uploads.
+- **Your accounts**: the accounts of the statements you upload count as yours, so upload only your own statements in one session. For any other account that looks like yours (money regularly goes both ways), Finsight asks first.
 - **Corrections**: fix a category or type per transaction or per merchant; Finsight remembers it.
 - **Insights**: spending vs. your 3-month average, recurring payments and price changes, new subscriptions, unusual spending and possible double charges.
 - **Budgets & goals**: monthly budgets per category, savings goals, and a month-end spending forecast.
@@ -112,7 +113,7 @@ CSV files ──> parsers ──> combine & de-duplicate ──> categorize ─�
 
 Everything up to the corrections step runs once per upload and is cached, so the app stays fast with years of transactions.
 
-- **Transfers** are recognized from bank signals (top-ups, exchanges), your own IBANs and names, transfer keywords, investment categories, and matching amounts leaving one account and arriving in another within 3 days (`flows.py`).
+- **Transfers** are recognized from bank signals (top-ups, exchanges), your own accounts (those of the uploaded statements, plus IBANs and names you list in Settings), transfer keywords, investment categories, and matching amounts leaving one account and arriving in another within 3 days (`flows.py`).
 - **Categories**: the most specific keyword wins ("Uber Eats" is Restaurants, "Uber" is Transport); keywords of up to 4 letters only match whole words (`categorizer.py`).
 - **Forecast**: spent so far + recurring payments still due + everyday spending at your current pace.
 - **Insights** are calculated, not generated (`insights.py`):
@@ -128,6 +129,7 @@ Current supported CSV formats are:
 - Revolut
 - Wise
 - ING: payment and savings accounts, semicolon- or comma-separated, Dutch or English column names (built from ING's documented format, not yet verified with a real export)
+- Rabobank: payment and savings accounts, several accounts in one file (built from Rabobank's documented format, not yet verified with a real export)
 
 with plans to add further banks.
 
@@ -137,7 +139,7 @@ If the generic parser cannot identify enough information to interpret the file, 
 
 ## Sample Data
 
-`sample_data/` contains synthetic statements only. Try `multi_account_ing.csv` with `multi_account_revolut.csv` and `ing_savings_sample.csv` for transfers, or `insights_demo.csv` for price changes, new subscriptions and double charges.
+`sample_data/` contains synthetic statements only. Try `multi_account_ing.csv` with `multi_account_revolut.csv` and `ing_savings_sample.csv` for transfers, `rabobank_sample.csv` for a payment and a savings account in one file, `own_account_question_sample.csv` to see Finsight ask whether an account is yours, or `insights_demo.csv` for price changes, new subscriptions and double charges.
 
 ## Privacy
 
@@ -166,7 +168,7 @@ Never commit real bank statements or account details. `.gitignore` excludes comm
 - [ ] Additional bank integrations
     - [ ] Verify ING
     - [ ] ABN AMRO
-    - [ ] Rabobank
+    - [ ] Verify Rabobank
     - [ ] Bunq
 - [x] Monthly dashboard filter
 - [x] Multi-account upload with transfer and refund detection

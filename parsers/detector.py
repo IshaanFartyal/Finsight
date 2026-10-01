@@ -1,4 +1,5 @@
 from parsers.ing import is_ing_export
+from parsers.rabobank import is_rabobank_export
 
 
 def detect_bank(df):
@@ -9,6 +10,7 @@ def detect_bank(df):
         "revolut"
         "wise"
         "ing"
+        "rabobank"
         "unknown"
     """
 
@@ -62,5 +64,8 @@ def detect_bank(df):
     elif is_ing_export(df.columns):
         return "ing"
 
+    elif is_rabobank_export(df.columns):
+        return "rabobank"
+
     else:
-        return "unknown"
+        return "unknown"

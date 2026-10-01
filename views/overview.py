@@ -11,6 +11,7 @@ from charts import (
     create_income_expense_chart,
 )
 from currency import foreign_currencies
+from flows import suggest_own_accounts
 from review import categorized_share, uncategorized_merchants
 from ui import (
     BANK_NAMES,
@@ -88,6 +89,28 @@ def render(data):
                 f"yet. Pick categories for {to_review} merchants under "
                 "**Categories → To Review**; each choice covers all of a "
                 "merchant's transactions."
+            )
+
+        # Nudge towards Settings when an account looks like the user's
+        # own. Until they confirm it, payments to it count as income
+        # or spending.
+        possible_accounts = len(
+            suggest_own_accounts(df, st.session_state.transfer_settings)
+        )
+
+        if possible_accounts:
+            found = (
+                "an account that might be yours. Confirm under **Settings → "
+                "Your Accounts** whether payments to and from it are"
+                if possible_accounts == 1
+                else f"{possible_accounts} accounts that might be yours. "
+                "Confirm under **Settings → Your Accounts** whether "
+                "payments to and from them are"
+            )
+
+            st.info(
+                f"🔁 Finsight found {found} transfers between your own "
+                "accounts."
             )
 
         # ----------------------------------------------------

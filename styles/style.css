@@ -2,6 +2,13 @@
    FINSIGHT GLOBAL THEME
    ============================================================ */
 
+/* Sizes shared by the sidebar and its open/close tab */
+
+:root {
+    --sidebar-width: 225px;
+    --sidebar-tab-width: 30px;
+}
+
 html {
     font-size: 13px;
 }
@@ -71,9 +78,96 @@ body {
         );
 
     border-right: 1px solid #17314f;
+}
 
-    min-width: 225px;
-    max-width: 225px;
+/* Fixed width only while the sidebar is open. A closed sidebar takes
+   no room, so the page starts at the left edge of the window. */
+
+[data-testid="stSidebar"][aria-expanded="true"] {
+    min-width: var(--sidebar-width);
+    max-width: var(--sidebar-width);
+}
+
+[data-testid="stSidebar"][aria-expanded="false"] {
+    min-width: 0 !important;
+    max-width: 0 !important;
+    width: 0 !important;
+    border-right: none !important;
+}
+
+/* Room for the sidebar tab next to the page title */
+
+[data-testid="stSidebar"][aria-expanded="false"] ~ * .block-container {
+    padding-left: 3rem;
+}
+
+
+/* ----------------------------
+   SIDEBAR TAB
+   The open/close button is a small tab on the sidebar's edge:
+   "«" on the sidebar's right edge while it is open, "»" on the left
+   edge of the window while it is closed. Always visible, so it is
+   clear that it opens and closes the sidebar.
+---------------------------- */
+
+[data-testid="stExpandSidebarButton"],
+[data-testid="stSidebarCollapseButton"] button {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+
+    width: var(--sidebar-tab-width) !important;
+    height: 34px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+
+    background: #0b2238 !important;
+    border: 1px solid #17314f !important;
+    color: #9fb3c8 !important;
+}
+
+/* Closed: on the left edge of the window */
+
+[data-testid="stExpandSidebarButton"] {
+    position: fixed !important;
+    left: 0;
+    top: 12px;
+    z-index: 999999;
+
+    border-left: none !important;
+    border-radius: 0 10px 10px 0 !important;
+}
+
+/* Open: on the sidebar's right edge (Streamlit only shows it on hover) */
+
+[data-testid="stSidebarCollapseButton"] {
+    visibility: visible !important;
+
+    position: fixed !important;
+    left: calc(var(--sidebar-width) - var(--sidebar-tab-width));
+    top: 12px;
+    z-index: 999999;
+
+    margin: 0 !important;
+}
+
+/* The closed sidebar slides out by its own width, which can leave the
+   "«" tab peeking in at the left edge, on top of the "»" tab. */
+
+[data-testid="stSidebar"][aria-expanded="false"] [data-testid="stSidebarCollapseButton"] {
+    display: none !important;
+}
+
+[data-testid="stSidebarCollapseButton"] button {
+    border-right: none !important;
+    border-radius: 10px 0 0 10px !important;
+}
+
+[data-testid="stExpandSidebarButton"]:hover,
+[data-testid="stSidebarCollapseButton"] button:hover {
+    background: #12304d !important;
+    color: #19e6b3 !important;
 }
 
 
@@ -446,9 +540,8 @@ small {
         padding-right: 0.8rem;
     }
 
-    [data-testid="stSidebar"] {
-        min-width: 210px;
-        max-width: 210px;
+    :root {
+        --sidebar-width: 210px;
     }
 }
 
