@@ -131,3 +131,8 @@ def test_pipeline_recognizes_transfers_and_categories():
     assert categories["Werkgever BV"] == "Income"
     assert categories["DUWO"] == "Housing"
     assert categories["NS Groep via Mollie"] == "Transport"
+
+    # The monthly account charge
+    assert categories[
+        "Kosten Rabo DirectPakket periode 01-08-2026 t/m 31-08-2026"
+    ] == "Fees"

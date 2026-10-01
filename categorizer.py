@@ -128,6 +128,15 @@ DEFAULT_CATEGORY_RULES = {
     "Fees": [
         "BANK FEE",
         "SERVICE FEE",
+        # Monthly account charges at Dutch banks: "Kosten OranjePakket"
+        # (ING), "Kosten Rabo DirectPakket" (Rabobank), "BasisPakket",
+        # "BetaalPakket".
+        "ORANJEPAKKET",
+        "DIRECTPAKKET",
+        "BASISPAKKET",
+        "TOTAALPAKKET",
+        "BETAALPAKKET",
+        "BANKKOSTEN",
     ],
     "Income": [
         "SALARY",

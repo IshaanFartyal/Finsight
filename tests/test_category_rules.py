@@ -167,3 +167,24 @@ def test_column_and_single_row_categorizing_agree():
     assert categorize_dataframe(df, DEFAULT_CATEGORY_RULES).tolist() == [
         category(text) for text in texts
     ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Kosten OranjePakket 01-08-2026 t/m 31-08-2026",
+        "Kosten Rabo DirectPakket periode 01-08-2026 t/m 31-08-2026",
+        "Kosten Rabo BasisPakket",
+        "Rabo TotaalPakket",
+        "Kosten betaalpakket",
+        "Bankkosten derde kwartaal",
+    ],
+)
+def test_dutch_bank_charges_are_fees(text):
+    assert category(text) == "Fees"
+
+
+def test_package_words_do_not_match_other_text():
+    # "PAKKET" on its own is a parcel, not a bank charge.
+    assert category("PostNL pakket verzenden") == "Other"
+

@@ -16,7 +16,7 @@ The demo runs on made-up statements from an ING and a Revolut account. Uploads a
 
 - **Multi-bank import**: Revolut, Wise, ING and Rabobank parsers (payment and savings accounts) plus a generic fallback, with automatic separator, encoding and date-format detection. Overlapping exports are de-duplicated.
 - **Income, expense, transfer or refund**: transfers between your own accounts (including investments such as DEGIRO) are left out of income and spending; refunds reduce the category they belong to; bank fees count as expenses.
-- **Categorization**: 87 keywords in 16 categories, matched on cleaned merchant names (`SumUp *Bakkerij Jansen B.V.` → `Bakkerij Jansen`).
+- **Categorization**: 93 keywords in 16 categories, matched on cleaned merchant names (`SumUp *Bakkerij Jansen B.V.` → `Bakkerij Jansen`).
 - **To Review**: every unrecognized merchant is listed once; one choice categorizes all its transactions, now and in future uploads.
 - **Your accounts**: the accounts of the statements you upload count as yours, so upload only your own statements in one session. For any other account that looks like yours (money regularly goes both ways), Finsight asks first.
 - **Corrections**: fix a category or type per transaction or per merchant; Finsight remembers it.
