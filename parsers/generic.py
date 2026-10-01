@@ -1,8 +1,7 @@
-import re
-
 import pandas as pd
 
 from parsers.dates import parse_dates
+from parsers.numbers import parse_number as _parse_number
 from parsers.schema import STANDARD_COLUMNS
 
 
@@ -22,54 +21,6 @@ def _find_column(columns, candidates):
             return normalized[candidate.lower()]
 
     return None
-
-
-def _parse_number(value):
-    """
-    Best-effort conversion of common European and international
-    number formats into floats.
-
-    Examples:
-    12.50
-    12,50
-    1,234.50
-    1.234,50
-    €12,50
-    -25.00
-    """
-
-    if pd.isna(value):
-        return None
-
-    value = str(value).strip()
-
-    # Remove common currency symbols and spaces
-    value = re.sub(r"[€$£\s]", "", value)
-
-    if value == "":
-        return None
-
-    # Both comma and dot present
-    if "," in value and "." in value:
-
-        # Last separator is probably the decimal separator
-        if value.rfind(",") > value.rfind("."):
-            # European format: 1.234,56
-            value = value.replace(".", "")
-            value = value.replace(",", ".")
-        else:
-            # International format: 1,234.56
-            value = value.replace(",", "")
-
-    # Only comma present
-    elif "," in value:
-        value = value.replace(",", ".")
-
-    try:
-        return float(value)
-
-    except ValueError:
-        return None
 
 
 def parse_generic(df: pd.DataFrame) -> pd.DataFrame:

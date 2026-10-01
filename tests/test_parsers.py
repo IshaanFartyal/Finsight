@@ -15,6 +15,7 @@ SAMPLES = [
     ("insights_demo.csv", "unknown", 107),
     ("demo_ing.csv", "ing", 123),
     ("demo_revolut.csv", "revolut", 9),
+    ("ing_savings_sample.csv", "ing", 3),
 ]
 
 

@@ -14,7 +14,7 @@ The demo runs on made-up statements from an ING and a Revolut account. Uploads a
 
 ## Features
 
-- **Multi-bank import**: Revolut, Wise and ING parsers plus a generic fallback, with automatic delimiter and date-format detection. Overlapping exports are de-duplicated.
+- **Multi-bank import**: Revolut, Wise and ING (payment and savings accounts) parsers plus a generic fallback, with automatic separator, encoding and date-format detection. Overlapping exports are de-duplicated.
 - **Income, expense, transfer or refund**: transfers between your own accounts (including investments such as DEGIRO) are left out of income and spending; refunds reduce the category they belong to; bank fees count as expenses.
 - **Categorization**: 87 keywords in 16 categories, matched on cleaned merchant names (`SumUp *Bakkerij Jansen B.V.` → `Bakkerij Jansen`).
 - **To Review**: every unrecognized merchant is listed once; one choice categorizes all its transactions, now and in future uploads.
@@ -127,7 +127,7 @@ Current supported CSV formats are:
 
 - Revolut
 - Wise
-- ING (created, but not verified)
+- ING: payment and savings accounts, semicolon- or comma-separated, Dutch or English column names (built from ING's documented format, not yet verified with a real export)
 
 with plans to add further banks.
 
@@ -137,7 +137,7 @@ If the generic parser cannot identify enough information to interpret the file, 
 
 ## Sample Data
 
-`sample_data/` contains synthetic statements only. Try `multi_account_ing.csv` with `multi_account_revolut.csv` for transfers, or `insights_demo.csv` for price changes, new subscriptions and double charges.
+`sample_data/` contains synthetic statements only. Try `multi_account_ing.csv` with `multi_account_revolut.csv` and `ing_savings_sample.csv` for transfers, or `insights_demo.csv` for price changes, new subscriptions and double charges.
 
 ## Privacy
 

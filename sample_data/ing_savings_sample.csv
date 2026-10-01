@@ -1,0 +1,4 @@
+"Datum";"Omschrijving";"Rekening";"Rekening naam";"Tegenrekening";"Af Bij";"Bedrag";"Valuta";"Mutatiesoort";"Mededelingen";"Saldo na mutatie"
+"2026-09-30";"Rente";"V12345678";"Oranje Spaarrekening";"";"Bij";"4,17";"EUR";"Rente";"Rente over september";"5254,17"
+"2026-09-20";"Naar betaalrekening NL12INGB0123456789";"V12345678";"Oranje Spaarrekening";"NL12INGB0123456789";"Af";"50,00";"EUR";"Overschrijving";"Van Oranje Spaarrekening V12345678 naar NL12INGB0123456789";"5250,00"
+"2026-09-10";"Van betaalrekening NL12INGB0123456789";"V12345678";"Oranje Spaarrekening";"NL12INGB0123456789";"Bij";"300,00";"EUR";"Overschrijving";"Van NL12INGB0123456789 naar Oranje Spaarrekening V12345678";"5300,00"

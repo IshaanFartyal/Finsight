@@ -1,189 +1,168 @@
-# ING Bank Statement currently unverified. From ING bank statement template available from website so should be right, but not verified. Bear in mind.
+"""
+ING Netherlands exports (Mijn ING > Af- en bijschrijvingen downloaden).
+
+Built from ING's documented column list and open-source importers, not
+yet verified against a real export: please report anything that parses
+wrongly.
+
+Handles:
+
+- payment accounts, semicolon- or comma-separated, with or without the
+  newer "Saldo na mutatie" and "Tag" columns;
+- savings accounts (e.g. Oranje Spaarrekening), which have their own
+  layout: "Omschrijving", "Rekening naam", "Valuta", dates as 2026-09-10;
+- Mijn ING set to English, which exports English column names
+  ("Debit/credit", "Amount (EUR)", ...).
+
+All layouts have an "Af Bij" (or "Debit/credit") column and amounts
+without a sign: "Af" is money going out, "Bij" money coming in.
+"""
+
+import re
 
 import pandas as pd
 
 from parsers.dates import parse_dates
+from parsers.numbers import parse_numbers
 from parsers.schema import STANDARD_COLUMNS
+
+# Possible column names per field, in lower case. The first name is
+# the Dutch one; the others are the English export or older spellings
+# (older exports wrote "MutatieSoort").
+COLUMNS = {
+    "date": ["datum", "date"],
+    "name": ["naam / omschrijving", "omschrijving", "name / description", "description"],
+    "account": ["rekening", "account"],
+    "account_name": ["rekening naam", "account name"],
+    "counterparty": ["tegenrekening", "counterparty"],
+    "code": ["code"],
+    "direction": ["af bij", "debit/credit"],
+    "amount": ["bedrag (eur)", "bedrag", "amount (eur)", "amount"],
+    "currency": ["valuta", "currency"],
+    "type": ["mutatiesoort", "transaction type"],
+    "notes": ["mededelingen", "notifications"],
+    "balance": ["saldo na mutatie", "resulting balance"],
+    "tag": ["tag"],
+}
+
+REQUIRED = ["date", "name", "account", "direction", "amount"]
+
+OUTGOING = {"af", "debit"}
+INCOMING = {"bij", "credit"}
+
+
+def _normalize(name):
+    """'Naam / Omschrijving ' -> 'naam / omschrijving'."""
+
+    return re.sub(r"\s+", " ", str(name)).strip().lower()
+
+
+def find_columns(columns):
+    """
+    Map each field in COLUMNS to the column holding it, or None.
+    """
+
+    available = {_normalize(column): column for column in columns}
+
+    found = {}
+
+    for field, names in COLUMNS.items():
+        found[field] = next(
+            (available[name] for name in names if name in available),
+            None,
+        )
+
+    return found
+
+
+# Column names only ING uses, so a generic English export with "Date",
+# "Description" and "Debit/credit" isn't mistaken for ING.
+ING_MARKERS = {"af bij", "name / description", "notifications", "resulting balance"}
+
+
+def is_ing_export(columns):
+    """
+    True when the columns look like an ING export: all required fields
+    plus at least one column name that is typical for ING.
+    """
+
+    found = find_columns(columns)
+    names = {_normalize(column) for column in columns}
+
+    return (
+        all(found[field] is not None for field in REQUIRED)
+        and bool(names & ING_MARKERS)
+    )
+
+
+def _text(df, column):
+    if column is None:
+        return pd.Series("", index=df.index, dtype=object)
+
+    return df[column].fillna("").astype(str).str.strip()
 
 
 def parse_ing(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Parse an ING Netherlands EUR CSV export and convert it into
-    FinSight's standard transaction format.
-
-    Expected columns:
-    Datum
-    Naam / Omschrijving
-    Rekening
-    Tegenrekening
-    Code
-    Af Bij
-    Bedrag (EUR)
-    Mutatiesoort
-    Mededelingen
-    Saldo na mutatie
-    Tag
+    Convert an ING export (payment or savings account) into Finsight's
+    standard transaction format.
     """
 
-    required_columns = {
-        "Datum",
-        "Naam / Omschrijving",
-        "Rekening",
-        "Tegenrekening",
-        "Code",
-        "Af Bij",
-        "Bedrag (EUR)",
-        "Mutatiesoort",
-        "Mededelingen",
-        "Saldo na mutatie",
-        "Tag",
-    }
+    columns = find_columns(df.columns)
 
-    missing_columns = required_columns - set(df.columns)
+    missing = [field for field in REQUIRED if columns[field] is None]
 
-    if missing_columns:
+    if missing:
         raise ValueError(
-            f"ING CSV is missing required columns: {missing_columns}"
+            "ING CSV is missing required columns: " + ", ".join(missing)
         )
 
     df = df.copy()
 
-    # ----------------------------
-    # DATE
-    # ING format: YYYYMMDD
-    # ----------------------------
+    # Dates: 20260910 (payment accounts) or 2026-09-10 (savings).
+    df["date"] = parse_dates(df[columns["date"]])
 
-    df["date"] = parse_dates(df["Datum"])
+    # Description: the counterparty name, or the notes when it's empty.
+    notes = _text(df, columns["notes"])
+    description = _text(df, columns["name"])
+    description = description.where(description != "", notes)
+    df["description"] = description.where(description != "", "Unknown transaction")
 
-    # ----------------------------
-    # DESCRIPTION
-    # ----------------------------
+    # Mededelingen often holds the useful text ("SALARIS SEPTEMBER",
+    # "NS REIZEN"), so the categorizer searches it too.
+    df["details"] = notes
 
-    df["description"] = (
-        df["Naam / Omschrijving"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    # Amounts have no sign; "Af"/"Debit" means money going out. Rows with
+    # an unknown direction keep whatever sign the amount itself has.
+    amount = parse_numbers(df[columns["amount"]])
+    direction = _text(df, columns["direction"]).str.lower()
 
-    # Use Mededelingen if description is empty
-    messages = (
-        df["Mededelingen"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    df["amount"] = amount
+    df.loc[direction.isin(OUTGOING), "amount"] = -amount.abs()
+    df.loc[direction.isin(INCOMING), "amount"] = amount.abs()
 
-    empty_description = df["description"] == ""
+    if columns["balance"] is not None:
+        df["balance"] = parse_numbers(df[columns["balance"]])
+    else:
+        df["balance"] = float("nan")
 
-    df.loc[
-        empty_description,
-        "description"
-    ] = messages[empty_description]
+    # Payment accounts are always in euros ("Bedrag (EUR)"); savings
+    # exports have a "Valuta" column.
+    currency = _text(df, columns["currency"]).str.upper()
+    df["currency"] = currency.where(currency != "", "EUR")
 
-    df.loc[
-        df["description"] == "",
-        "description"
-    ] = "Unknown transaction"
-
-    # Mededelingen often holds the useful text
-    # (e.g. "SALARY SEPTEMBER", "NS REIZEN"), so keep it
-    # for the categorizer.
-    df["details"] = messages
-
-    # ----------------------------
-    # AMOUNT
-    # Dutch decimal comma -> decimal point
-    # ----------------------------
-
-    amount = (
-        df["Bedrag (EUR)"]
-        .fillna("")
-        .astype(str)
-        .str.replace(".", "", regex=False)
-        .str.replace(",", ".", regex=False)
-        .str.strip()
-    )
-
-    amount = pd.to_numeric(
-        amount,
-        errors="coerce"
-    )
-
-    direction = (
-        df["Af Bij"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.lower()
-    )
-
-    df["amount"] = amount.abs()
-
-    # "Af" = money going out
-    df.loc[
-        direction == "af",
-        "amount"
-    ] *= -1
-
-    # "Bij" = money coming in
-    df.loc[
-        direction == "bij",
-        "amount"
-    ] = df.loc[
-        direction == "bij",
-        "amount"
-    ].abs()
-
-    # ----------------------------
-    # BALANCE
-    # ----------------------------
-
-    balance = (
-        df["Saldo na mutatie"]
-        .fillna("")
-        .astype(str)
-        .str.replace(".", "", regex=False)
-        .str.replace(",", ".", regex=False)
-        .str.strip()
-    )
-
-    df["balance"] = pd.to_numeric(
-        balance,
-        errors="coerce"
-    )
-
-    # ----------------------------
-    # STANDARD FIELDS
-    # ----------------------------
-
-    df["currency"] = "EUR"
-
-    df["transaction_type"] = (
-        df["Mutatiesoort"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-
-    df["account"] = (
-        df["Rekening"].fillna("").astype(str).str.strip()
-    )
-
-    df["counterparty_account"] = (
-        df["Tegenrekening"].fillna("").astype(str).str.strip()
-    )
+    df["transaction_type"] = _text(df, columns["type"])
+    df["account"] = _text(df, columns["account"])
+    df["counterparty_account"] = _text(df, columns["counterparty"])
 
     df["fee"] = 0.0
     df["bank"] = "ING"
     df["category"] = "Uncategorized"
 
-    # Remove invalid rows
-    df = df.dropna(
-        subset=["date", "amount"]
-    )
+    df = df.dropna(subset=["date", "amount"])
 
-    # Sort oldest -> newest
-    df = df.sort_values("date")
+    # Oldest first. ING lists newest first; "stable" keeps the order of
+    # same-day transactions as ING wrote them (reversed).
+    df = df.iloc[::-1].sort_values("date", kind="stable")
 
     return df[STANDARD_COLUMNS].reset_index(drop=True)

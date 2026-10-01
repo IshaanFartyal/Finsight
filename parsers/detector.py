@@ -1,3 +1,6 @@
+from parsers.ing import is_ing_export
+
+
 def detect_bank(df):
     """
     Detect bank/export format based on CSV column names.
@@ -50,28 +53,14 @@ def detect_bank(df):
         "Transaction Details Type",
     }
 
-    ing_columns = {
-        "Datum",
-        "Naam / Omschrijving",
-        "Rekening",
-        "Tegenrekening",
-        "Code",
-        "Af Bij",
-        "Bedrag (EUR)",
-        "Mutatiesoort",
-        "Mededelingen",
-        "Saldo na mutatie",
-        "Tag",
-    }
-
     if revolut_columns.issubset(columns):
         return "revolut"
 
     elif wise_columns.issubset(columns):
         return "wise"
 
-    elif ing_columns.issubset(columns):
+    elif is_ing_export(df.columns):
         return "ing"
 
     else:
-        return "unknown"
+        return "unknown"
