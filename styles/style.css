@@ -1,0 +1,453 @@
+/* ============================================================
+   FINSIGHT GLOBAL THEME
+   ============================================================ */
+
+html {
+    font-size: 13px;
+}
+
+body {
+    margin: 0;
+}
+
+/* ----------------------------
+   MAIN APP BACKGROUND
+---------------------------- */
+
+.stApp {
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(48, 55, 190, 0.16),
+            transparent 34%
+        ),
+        linear-gradient(
+            180deg,
+            #07111f 0%,
+            #081522 100%
+        );
+    color: #f4f7fb;
+}
+
+
+/* ============================================================
+   MAIN CONTENT LAYOUT
+   ============================================================ */
+
+.block-container {
+    max-width: 1650px;
+
+    padding-top: 0.8rem;
+    padding-bottom: 1.2rem;
+    padding-left: 1.2rem;
+    padding-right: 1.2rem;
+}
+
+
+/* Reduce vertical gaps between Streamlit elements */
+
+.element-container {
+    margin-bottom: 0.35rem;
+}
+
+
+/* Reduce gaps between columns */
+
+[data-testid="stHorizontalBlock"] {
+    gap: 0.75rem;
+}
+
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+
+[data-testid="stSidebar"] {
+    background:
+        linear-gradient(
+            180deg,
+            #071a2d 0%,
+            #061321 100%
+        );
+
+    border-right: 1px solid #17314f;
+
+    min-width: 225px;
+    max-width: 225px;
+}
+
+
+/* Sidebar inner spacing */
+
+[data-testid="stSidebar"] > div:first-child {
+    padding-top: 0.8rem;
+    padding-left: 0.7rem;
+    padding-right: 0.7rem;
+}
+
+
+/* ----------------------------
+   SIDEBAR BRAND
+---------------------------- */
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    margin-bottom: 18px;
+}
+
+.sidebar-logo {
+    color: #19e6b3;
+
+    font-size: 1.9rem;
+    font-weight: 700;
+
+    line-height: 1;
+}
+
+.sidebar-title {
+    color: #ffffff;
+
+    font-size: 1.4rem;
+    font-weight: 700;
+
+    line-height: 1.1;
+}
+
+.sidebar-tagline {
+    color: #8297ad;
+
+    font-size: 0.72rem;
+
+    margin-top: 2px;
+}
+
+
+/* ----------------------------
+   SIDEBAR NAVIGATION
+---------------------------- */
+
+[data-testid="stSidebar"] div[role="radiogroup"] {
+    gap: 4px;
+}
+
+[data-testid="stSidebar"] label {
+    border-radius: 9px;
+
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+
+/* ============================================================
+   PAGE HEADERS
+   ============================================================ */
+
+h1,
+h2,
+h3 {
+    color: #f7f9fc;
+}
+
+
+/* ----------------------------
+   MAIN PAGE HEADER
+---------------------------- */
+
+.page-header {
+    margin-bottom: 0.6rem;
+}
+
+.page-header h1 {
+    margin-top: 0;
+    margin-bottom: 0;
+
+    font-size: 2.35rem;
+    font-weight: 700;
+
+    line-height: 1.05;
+}
+
+.page-header p {
+    color: #8fa4ba;
+
+    margin-top: 4px;
+    margin-bottom: 0;
+
+    font-size: 0.95rem;
+}
+
+
+/* ----------------------------
+   OVERVIEW HEADER
+---------------------------- */
+
+.overview-heading {
+    margin-top: 6px;
+    margin-bottom: 10px;
+}
+
+.overview-heading h2 {
+    margin-top: 0;
+    margin-bottom: 2px;
+
+    font-size: 1.4rem;
+}
+
+.overview-heading p {
+    color: #8297ad;
+
+    margin-top: 0;
+    margin-bottom: 0;
+
+    font-size: 0.85rem;
+}
+
+
+/* ----------------------------
+   GENERAL HEADING SPACING
+---------------------------- */
+
+h1 {
+    margin-top: 0;
+    margin-bottom: 0.25rem;
+}
+
+h2 {
+    margin-top: 0.45rem;
+    margin-bottom: 0.35rem;
+}
+
+h3 {
+    margin-top: 0.4rem;
+    margin-bottom: 0.3rem;
+}
+
+
+/* ============================================================
+   METRIC CARDS
+   ============================================================ */
+
+div[data-testid="stMetric"] {
+    background:
+        linear-gradient(
+            145deg,
+            #10243a 0%,
+            #0b192b 100%
+        );
+
+    border: 1px solid #1c3956;
+
+    padding: 12px 14px;
+
+    border-radius: 14px;
+
+    min-height: 90px;
+
+    box-shadow:
+        0 6px 18px
+        rgba(0, 0, 0, 0.18);
+
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+div[data-testid="stMetric"]:hover {
+    border-color: #19e6b3;
+
+    transform: translateY(-2px);
+
+    box-shadow:
+        0 8px 22px
+        rgba(0, 0, 0, 0.24);
+}
+
+
+/* Metric labels */
+
+div[data-testid="stMetricLabel"] {
+    color: #9fb1c7;
+}
+
+
+/* Metric values */
+
+div[data-testid="stMetricValue"] {
+    color: #ffffff;
+
+    font-size: 1.65rem;
+    font-weight: 700;
+}
+
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+.stButton > button {
+    border-radius: 9px;
+
+    border: 1px solid #19e6b3;
+
+    background-color: #0d2232;
+
+    color: #19e6b3;
+
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+
+    transition:
+        background-color 0.18s ease,
+        color 0.18s ease,
+        border-color 0.18s ease;
+}
+
+.stButton > button:hover {
+    background-color: #123349;
+
+    color: #ffffff;
+
+    border-color: #31f5c4;
+}
+
+
+/* ============================================================
+   FILE UPLOADER
+   ============================================================ */
+
+[data-testid="stFileUploader"] {
+    background: #0b192b;
+
+    border: 1px solid #18324e;
+
+    border-radius: 11px;
+
+    padding: 6px;
+}
+
+
+/* ============================================================
+   SELECTBOX / INPUTS
+   ============================================================ */
+
+[data-baseweb="select"] > div {
+    background-color: #0b192b;
+
+    border-color: #1d3958;
+
+    border-radius: 9px;
+}
+
+input,
+textarea {
+    border-radius: 9px !important;
+}
+
+
+/* ============================================================
+   EXPANDERS
+   ============================================================ */
+
+[data-testid="stExpander"] {
+    background: #0c1b2e;
+
+    border: 1px solid #1c3956;
+
+    border-radius: 11px;
+
+    margin-bottom: 0.35rem;
+}
+
+
+/* ============================================================
+   DATAFRAME
+   ============================================================ */
+
+[data-testid="stDataFrame"] {
+    border: 1px solid #1d3958;
+
+    border-radius: 11px;
+
+    overflow: hidden;
+}
+
+
+/* ============================================================
+   ALERTS / INFO BOXES
+   ============================================================ */
+
+[data-testid="stAlert"] {
+    border-radius: 11px;
+
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+}
+
+
+/* ============================================================
+   DIVIDERS
+   ============================================================ */
+
+hr {
+    border-color: #17314f;
+
+    margin-top: 0.6rem;
+    margin-bottom: 0.6rem;
+}
+
+
+/* ============================================================
+   CAPTIONS / SECONDARY TEXT
+   ============================================================ */
+
+.stCaptionContainer,
+small {
+    color: #8297ad;
+}
+
+
+/* ============================================================
+   CHART / BLOCK SPACING
+   ============================================================ */
+
+[data-testid="stVegaLiteChart"],
+[data-testid="stPlotlyChart"],
+[data-testid="stArrowVegaLiteChart"] {
+    margin-top: 0.2rem;
+    margin-bottom: 0.35rem;
+}
+
+
+/* ============================================================
+   RADIO / NAVIGATION POLISH
+   ============================================================ */
+
+[data-testid="stRadio"] label {
+    font-size: 0.9rem;
+}
+
+
+/* ============================================================
+   MOBILE / SMALL SCREEN FALLBACK
+   ============================================================ */
+
+@media (max-width: 900px) {
+    html {
+        font-size: 13px;
+    }
+
+    .block-container {
+        padding-left: 0.8rem;
+        padding-right: 0.8rem;
+    }
+
+    [data-testid="stSidebar"] {
+        min-width: 210px;
+        max-width: 210px;
+    }
+}
