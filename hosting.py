@@ -125,6 +125,6 @@ SIDEBAR_NOTICE = (
     "🌐 **Online demo** with made-up data.\n\n"
     "⚠️ **Don't enter real personal or bank information here.** "
     "Changes are kept for this session only.\n\n"
-    "To analyse your own statements privately, run Finsight on your "
+    "To analyze your own statements privately, run Finsight on your "
     f"own computer: [code on GitHub]({REPO_URL})."
 )

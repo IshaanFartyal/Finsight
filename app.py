@@ -251,10 +251,10 @@ if not uploaded_files and not HOSTED:
 
 
 # ============================================================
-# LOAD + ANALYSE FILES
+# LOAD + ANALYZE FILES
 # ============================================================
 
-@st.cache_data(show_spinner="Analysing your statements…")
+@st.cache_data(show_spinner="Analyzing your statements…")
 def load_transactions(files, rules_json, settings_json, corrections_json):
     """
     Cached: only re-runs when the files, rules, settings or corrections
