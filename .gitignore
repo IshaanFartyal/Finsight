@@ -26,6 +26,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+.streamlit/secrets.toml
 
 # Real/local bank data
 transactions.csv

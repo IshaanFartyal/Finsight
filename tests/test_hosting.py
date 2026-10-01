@@ -84,3 +84,31 @@ def test_disclaimer_warns_against_real_data_and_links_to_the_code():
         assert REPO_URL in text
 
     assert "IBAN" in DISCLAIMER
+
+
+@pytest.mark.parametrize("value, expected", [("true", True), ("1", True), ("", False), ("false", False)])
+def test_private_by_default(value, expected):
+    from hosting import private_by_default
+
+    assert private_by_default(environ={"FINSIGHT_PRIVATE": value}) is expected
+
+
+def test_storage_note_in_a_private_session():
+    note = storage_note(hosted=False, private=True)
+
+    assert "nothing is saved to disk" in note
+    # The online demo keeps its own wording.
+    assert storage_note(hosted=True, private=True) == storage_note(hosted=True)
+
+
+def test_private_by_default_from_secrets():
+    from hosting import private_by_default
+
+    assert private_by_default(environ={}, secrets={"FINSIGHT_PRIVATE": "true"}) is True
+    assert private_by_default(environ={}, secrets={}) is False
+
+
+def test_private_setting_does_not_switch_on_hosted_mode():
+    secrets = {"FINSIGHT_PRIVATE": "true"}
+
+    assert is_hosted(environ={}, secrets=secrets) is False

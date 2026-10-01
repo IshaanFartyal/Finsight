@@ -198,3 +198,12 @@ def test_normalize_merchant_drops_reference_codes():
     assert normalize_merchant("BOL.COM 4401") == normalize_merchant("Bol.com")
     # Nothing but a reference: keep it rather than returning nothing.
     assert normalize_merchant("12345") == "12345"
+
+
+def test_investments_are_transfers_not_spending():
+    assert flows_for(
+        [
+            {"date": "2026-09-01", "description": "DEGIRO storting", "amount": -500.0, "category": "Savings & Investments"},
+            {"date": "2026-09-02", "description": "Tikkie pizza", "amount": -12.0, "category": "Payment Requests"},
+        ]
+    ) == [TRANSFER, EXPENSE]

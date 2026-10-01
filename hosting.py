@@ -19,6 +19,10 @@ import os
 
 HOSTED_SETTING = "FINSIGHT_HOSTED"
 
+# Start every local session as a private session (nothing saved to
+# disk). The sidebar switch can still turn it off.
+PRIVATE_SETTING = "FINSIGHT_PRIVATE"
+
 REPO_URL = "https://github.com/IshaanFartyal/finsight"
 
 _TRUE = {"1", "true", "yes", "on"}
@@ -34,21 +38,39 @@ def is_hosted(environ=None, secrets=None):
     the given secrets (anything with a .get(), like st.secrets).
     """
 
+    return _setting_on(HOSTED_SETTING, environ, secrets)
+
+
+def _setting_on(name, environ=None, secrets=None):
+    """
+    True when the setting is switched on in the environment or in the
+    given secrets (anything with a .get(), like st.secrets).
+    """
+
     environ = os.environ if environ is None else environ
 
-    if _is_true(environ.get(HOSTED_SETTING, "")):
+    if _is_true(environ.get(name, "")):
         return True
 
     if secrets is not None:
         try:
-            return _is_true(secrets.get(HOSTED_SETTING, ""))
+            return _is_true(secrets.get(name, ""))
 
-        # Locally there is usually no secrets file, and reading
-        # st.secrets then raises an error: that means "not hosted".
+        # Usually there is no secrets file, and reading st.secrets then
+        # raises an error: that means "not set".
         except Exception:
             return False
 
     return False
+
+
+def private_by_default(environ=None, secrets=None):
+    """
+    True when FINSIGHT_PRIVATE is switched on, in the environment or in
+    a secrets.toml file, e.g. the personal ~/.streamlit/secrets.toml.
+    """
+
+    return _setting_on(PRIVATE_SETTING, environ, secrets)
 
 
 def save_if_local(save, data, hosted):
@@ -66,8 +88,14 @@ def save_if_local(save, data, hosted):
     return True
 
 
-def storage_note(hosted):
+def storage_note(hosted, private=False):
     """Where the user's changes are kept, for captions in the app."""
+
+    if private and not hosted:
+        return (
+            "Private session: nothing is saved to disk, so your changes "
+            "are gone when you close Finsight or clear the session."
+        )
 
     if hosted:
         return (

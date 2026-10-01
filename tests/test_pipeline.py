@@ -138,3 +138,35 @@ def test_demo_data_loads_and_shows_every_feature():
 
     # The USD pocket needs an exchange rate.
     assert "USD" in set(df["currency"])
+
+
+def test_savings_keep_their_category_and_dont_lower_the_savings_rate():
+    from analytics import calculate_summary
+
+    csv = (
+        '"Datum";"Naam / Omschrijving";"Rekening";"Tegenrekening";"Code";"Af Bij";'
+        '"Bedrag (EUR)";"Mutatiesoort";"Mededelingen";"Saldo na mutatie";"Tag"\n'
+        '"20260901";"Employer";"NL12INGB0123456789";"NL03BANK1234567890";"OV";"Bij";'
+        '"2000,00";"Overschrijving";"SALARY SEPTEMBER";"2000,00";""\n'
+        '"20260905";"DEGIRO";"NL12INGB0123456789";"NL55DEGI0123456789";"OV";"Af";'
+        '"500,00";"Overschrijving";"DEGIRO storting";"1500,00";""\n'
+        '"20260910";"Albert Heijn";"NL12INGB0123456789";"NL01BANK1234567890";"BA";"Af";'
+        '"100,00";"Betaalautomaat";"ALBERT HEIJN";"1400,00";""\n'
+    )
+
+    df, _, _ = build_transactions(
+        [("ing.csv", csv.encode())],
+        DEFAULT_CATEGORY_RULES,
+        default_settings(),
+        empty_corrections(),
+    )
+
+    degiro = df[df["description"] == "DEGIRO"].iloc[0]
+
+    assert degiro["category"] == "Savings & Investments"
+    assert degiro["flow"] == "transfer"
+
+    summary = calculate_summary(df)
+
+    assert summary["expenses"] == 100.0
+    assert summary["savings_rate"] == 0.95

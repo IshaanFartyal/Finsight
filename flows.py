@@ -10,7 +10,8 @@ Classification runs in order; later steps only change transactions
 that earlier steps left as plain income/expense:
 
 1. Bank signals    the bank itself marks top-ups, currency exchanges
-                   and refunds.
+                   and refunds; money to your own investment or savings
+                   accounts (category "Savings & Investments").
 2. Own accounts    money sent to or received from one of the user's
                    own account numbers.
 3. Own names       payments to/from the account holder's own name.
@@ -27,6 +28,8 @@ import re
 from pathlib import Path
 
 import pandas as pd
+
+from merchants import normalize_merchant as _normalize_merchant
 
 INCOME = "income"
 EXPENSE = "expense"
@@ -65,6 +68,12 @@ TRANSFER_TYPES = {
 REFUND_TYPES = {
     "REFUND",
     "CARD_REFUND",
+}
+
+# Categories that are always money moving to or from your own accounts
+# (e.g. a broker like DEGIRO), so never income or spending.
+TRANSFER_CATEGORIES = {
+    "Savings & Investments",
 }
 
 # How many days apart the two halves of a transfer may be booked.
@@ -164,30 +173,9 @@ def account_key(df):
     return _column(df, "bank") + "|" + key
 
 
-def normalize_merchant(description):
-    """
-    Strip reference codes and punctuation, so 'ALBERT HEIJN 1234',
-    'Albert Heijn' and 'Spotify P1A2B3' / 'SPOTIFY' match.
-
-    Used wherever Finsight needs to recognize the same merchant across
-    transactions: refunds, recurring payments, unusual spending and
-    manual corrections.
-    """
-
-    # Words containing digits are reference codes ("P1A2B3", "*1234",
-    # "NR:4401") that change from payment to payment, so drop them.
-    words = [
-        word
-        for word in str(description).upper().split()
-        if not re.search(r"\d", word)
-    ]
-
-    text = re.sub(r"[^A-Z ]", " ", " ".join(words))
-    text = re.sub(r"\s+", " ", text).strip()
-
-    # Descriptions without letters (e.g. only a reference number)
-    # are kept as they are.
-    return text or str(description).strip().upper()
+# Defined in merchants.py; imported here so existing code that uses
+# flows.normalize_merchant keeps working.
+normalize_merchant = _normalize_merchant
 
 
 # ============================================================
@@ -268,6 +256,9 @@ def classify_flows(df, settings=None):
     # 1. Bank signals
     flow[transaction_type.isin(TRANSFER_TYPES)] = TRANSFER
     flow[still_open() & transaction_type.isin(REFUND_TYPES) & (amount > 0)] = REFUND
+
+    # ...and categories that are always transfers (investments, savings)
+    flow[still_open() & _column(df, "category").isin(TRANSFER_CATEGORIES)] = TRANSFER
 
     # 2. Own accounts
     own_accounts = {

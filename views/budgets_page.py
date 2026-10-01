@@ -27,7 +27,7 @@ BUDGET_EDITOR_KEY = "budgets_editor"
 GOALS_EDITOR_KEY = "goals_editor"
 
 # Categories that are never spending, so never budgeted.
-NOT_BUDGETABLE = {"Income", "Transfer"}
+NOT_BUDGETABLE = {"Income", "Transfer", "Savings & Investments"}
 
 
 def _save(data, editor_key):

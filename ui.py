@@ -95,30 +95,41 @@ def export_excel(df):
 # HOSTED MODE (online demo)
 # ============================================================
 
-def _detect_hosted():
+def _secrets():
+    """st.secrets, or None when it can't be read."""
     try:
-        secrets = st.secrets
+        return st.secrets
     except Exception:
-        secrets = None
-
-    return hosting.is_hosted(secrets=secrets)
+        return None
 
 
 # Decided once when the app starts.
-HOSTED = _detect_hosted()
+HOSTED = hosting.is_hosted(secrets=_secrets())
+
+# Start sessions as private sessions (FINSIGHT_PRIVATE, from the
+# environment or a secrets.toml file). Local only.
+PRIVATE_BY_DEFAULT = (
+    not HOSTED
+    and hosting.private_by_default(secrets=_secrets())
+)
+
+
+def is_private():
+    """True during a private session (sidebar switch, local only)."""
+    return bool(st.session_state.get("private_mode", False))
 
 
 def persist(save, data):
     """
-    Save data with the given save function, except in the online demo,
-    where changes stay in the visitor's session only.
+    Save data with the given save function, except in the online demo
+    and in a private session, where changes stay in memory only.
     """
-    return hosting.save_if_local(save, data, HOSTED)
+    return hosting.save_if_local(save, data, HOSTED or is_private())
 
 
 def storage_note():
     """Caption text saying where changes are kept."""
-    return hosting.storage_note(HOSTED)
+    return hosting.storage_note(HOSTED, is_private())
 
 
 # ============================================================

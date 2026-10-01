@@ -8,6 +8,7 @@ lives in its own module under views/. Run with:
 """
 
 import json
+import time
 
 import streamlit as st
 
@@ -16,9 +17,13 @@ from categorizer import DEFAULT_CATEGORY_RULES, load_rules
 from corrections import empty_corrections, load_corrections
 from demo import DEMO_EXCHANGE_RATES, demo_budgets, demo_files
 from flows import default_settings, load_settings
-from hosting import DISCLAIMER, DISCLAIMER_TITLE, SIDEBAR_NOTICE
+from hosting import (
+    DISCLAIMER,
+    DISCLAIMER_TITLE,
+    SIDEBAR_NOTICE,
+)
 from pipeline import build_monthly_finances, build_transactions
-from ui import HOSTED, AppData
+from ui import HOSTED, PRIVATE_BY_DEFAULT, AppData
 from views import (
     budgets_page,
     categories,
@@ -97,6 +102,38 @@ for key, value in initial_state().items():
         st.session_state[key] = value
 
 
+# The "cleared from memory" confirmation: fully visible for 2 seconds,
+# fades out over 1 second, then folds away in 0.3 seconds
+# (CSS animation in styles/style.css; keep the total in sync).
+CLEARED_NOTICE_SECONDS = 3.3
+
+CLEARED_NOTICE = (
+    "✅ Cleared from memory: your statements, the analysis cache "
+    "and all changes from this session are gone."
+)
+
+
+def show_cleared_notice(cleared_at):
+    """
+    Show the confirmation under the clear button.
+
+    If the app reruns while the message is still showing (e.g. the user
+    clicks something), the animation continues where it was instead of
+    starting over, via a negative animation delay.
+    """
+    elapsed = time.time() - cleared_at
+
+    if elapsed >= CLEARED_NOTICE_SECONDS:
+        st.session_state.pop("cleared_at", None)
+        return
+
+    st.sidebar.markdown(
+        f'<div class="finsight-cleared" '
+        f'style="animation-delay: -{elapsed:.2f}s">{CLEARED_NOTICE}</div>',
+        unsafe_allow_html=True,
+    )
+
+
 # ============================================================
 # SIDEBAR
 # ============================================================
@@ -133,6 +170,51 @@ if HOSTED:
     st.sidebar.warning(SIDEBAR_NOTICE)
 
 else:
+    # Private session: nothing is written to disk (rules, settings,
+    # corrections, budgets), and everything can be wiped from memory
+    # with one click. Useful for testing with real statements.
+    if "private_mode" not in st.session_state:
+        st.session_state.private_mode = PRIVATE_BY_DEFAULT
+
+    st.sidebar.toggle(
+        "🔒 Private session",
+        key="private_mode",
+        help=(
+            "Nothing is saved to disk while this is on: changes to rules, "
+            "settings, corrections and budgets only last until you close "
+            "Finsight. Files saved earlier stay where they are."
+        ),
+    )
+
+    if st.session_state.private_mode:
+        st.sidebar.caption(
+            "Nothing is saved to disk. Your statements and changes are "
+            "only held in memory until you close Finsight."
+        )
+
+        if st.sidebar.button(
+            "🧹 Clear everything from memory",
+            help=(
+                "Removes your uploaded statements, the analysis cache and "
+                "all changes from this session right away."
+            ),
+        ):
+            # Cached analyses of uploaded statements
+            st.cache_data.clear()
+
+            # Uploads, selections and unsaved changes
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+
+            st.session_state.private_mode = True
+
+            # Remembered so the confirmation below can show after the rerun.
+            st.session_state.cleared_at = time.time()
+            st.rerun()
+
+        if st.session_state.get("cleared_at"):
+            show_cleared_notice(st.session_state.cleared_at)
+
     uploaded_files = st.sidebar.file_uploader(
         "Import bank statements",
         type=["csv"],

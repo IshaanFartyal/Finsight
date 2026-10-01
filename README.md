@@ -26,9 +26,12 @@ Upload statements from all your accounts at once: Finsight combines them and rec
 - Currency conversion to euros using exchange rates you set (no internet connection needed)
 - Export your categorized, corrected transactions as CSV or Excel (with monthly summary sheets)
 - Settings for your own IBANs, account holder names and transfer keywords, saved locally in `settings.json`
-- Rule-based transaction categorization with word-aware keyword matching
+- Rule-based transaction categorization with 87 keywords in 16 categories for common Dutch and international merchants (supermarkets, NS and public transport, energy and telecom, health insurers, airlines, brokers...) and word-aware matching
+- Merchant names are cleaned before matching: payment-processor prefixes (`SumUp *`, `CCV*`, `Zettle_*`, `PayPal *`...), Wise card texts, card and terminal codes, dates and legal suffixes (`B.V.`) are removed, so `SumUp *Bakkerij Jansen B.V.` and `BAKKERIJ JANSEN` are recognized as the same merchant
+- **To Review** (Categories page): every merchant without a category is listed once, with how often you paid there; one choice categorizes all its transactions, including future uploads
 - User editable categories and keyword rules, saved locally in `rules.json`
-- Rule priority: categories are checked top to bottom, first match wins
+- The most specific keyword wins ("Uber Eats" is Restaurants, "Uber" is Transport); keywords of up to 4 letters only match whole words
+- Money moved to your own investment accounts (DEGIRO, Trade Republic, BUX) is treated as a transfer, so it doesn't lower your savings rate
 - Financial summary metrics: income, expenses, savings, and savings rate
 - Spending by category
 - Monthly spending trends
@@ -63,6 +66,8 @@ finsight/
 ├── categorizer.py      # keyword rules -> categories
 ├── flows.py            # income / expense / transfer / refund
 ├── corrections.py      # the user's manual corrections
+├── merchants.py        # clean merchant names from messy descriptions
+├── review.py           # merchants that still need a category
 ├── currency.py         # convert foreign currencies to euros
 ├── budgets.py          # budgets and savings goals
 ├── export.py           # CSV and Excel export
@@ -193,6 +198,21 @@ The `sample_data` folder contains synthetic CSV files for testing. These files c
 ## Privacy
 
 Finsight runs entirely on your own computer. Uploaded statements are analysed in memory by the local Streamlit process; nothing is sent anywhere, and Streamlit's anonymous usage statistics are switched off in `.streamlit/config.toml`. Your rules, settings, corrections and budgets are saved as local JSON files that are excluded from Git.
+
+**Private session:** switch on "🔒 Private session" in the sidebar and nothing is written to disk: rules, settings, corrections and budgets only last until you close the app. "Clear everything from memory" removes your uploaded statements, the analysis cache and all changes immediately.
+
+To start every session as a private session, add this to your personal secrets file, `~/.streamlit/secrets.toml` (or set the environment variable `FINSIGHT_PRIVATE=true`):
+
+```toml
+FINSIGHT_PRIVATE = "true"
+```
+
+**Only your own computer can connect:** by default, Streamlit also accepts connections from other devices on the same network. To prevent that, add this to your personal Streamlit config (`~/.streamlit/config.toml`, not the project's):
+
+```toml
+[server]
+address = "localhost"
+```
 
 Bank statements can contain highly sensitive personal and financial information.
 

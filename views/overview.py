@@ -11,6 +11,7 @@ from charts import (
     create_income_expense_chart,
 )
 from currency import foreign_currencies
+from review import categorized_share, uncategorized_merchants
 from ui import (
     BANK_NAMES,
     key_insights,
@@ -18,6 +19,10 @@ from ui import (
     require_data,
     show_insight,
 )
+
+
+# Show the review hint when fewer than this share has a category.
+REVIEW_HINT_BELOW = 0.9
 
 
 def render(data):
@@ -69,6 +74,20 @@ def render(data):
             st.caption(
                 f"Amounts in {', '.join(converted)} are converted to euros "
                 "using the exchange rates in Settings."
+            )
+
+        # Nudge towards the review screen when many transactions have
+        # no category, since that makes every chart less useful.
+        share = categorized_share(df)
+
+        if share < REVIEW_HINT_BELOW:
+            to_review = len(uncategorized_merchants(df))
+
+            st.info(
+                f"🏷️ {1 - share:.0%} of your transactions have no category "
+                f"yet. Pick categories for {to_review} merchants under "
+                "**Categories → To Review**; each choice covers all of a "
+                "merchant's transactions."
             )
 
         # ----------------------------------------------------
