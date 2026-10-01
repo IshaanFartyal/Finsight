@@ -1,3 +1,4 @@
+from parsers.bunq import is_bunq_export
 from parsers.ing import is_ing_export
 from parsers.rabobank import is_rabobank_export
 
@@ -11,6 +12,7 @@ def detect_bank(df):
         "wise"
         "ing"
         "rabobank"
+        "bunq"
         "unknown"
     """
 
@@ -66,6 +68,9 @@ def detect_bank(df):
 
     elif is_rabobank_export(df.columns):
         return "rabobank"
+
+    elif is_bunq_export(df.columns):
+        return "bunq"
 
     else:
         return "unknown"

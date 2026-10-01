@@ -14,7 +14,7 @@ The demo runs on made-up statements from an ING and a Revolut account. Uploads a
 
 ## Features
 
-- **Multi-bank import**: Revolut, Wise, ING and Rabobank parsers (payment and savings accounts) plus a generic fallback, with automatic separator, encoding and date-format detection. Overlapping exports are de-duplicated.
+- **Multi-bank import**: Revolut, Wise, ING, Rabobank and bunq parsers (payment and savings accounts) plus a generic fallback, with automatic separator, encoding and date-format detection. Overlapping exports are de-duplicated.
 - **Income, expense, transfer or refund**: transfers between your own accounts (including investments such as DEGIRO) are left out of income and spending; refunds reduce the category they belong to; bank fees count as expenses.
 - **Categorization**: 93 keywords in 16 categories, matched on cleaned merchant names (`SumUp *Bakkerij Jansen B.V.` → `Bakkerij Jansen`).
 - **To Review**: every unrecognized merchant is listed once; one choice categorizes all its transactions, now and in future uploads.
@@ -130,6 +130,7 @@ Current supported CSV formats are:
 - Wise
 - ING: payment and savings accounts, semicolon- or comma-separated, Dutch or English column names (built from ING's documented format, not yet verified with a real export)
 - Rabobank: payment and savings accounts, several accounts in one file (built from Rabobank's documented format, not yet verified with a real export)
+- bunq: several sub-accounts in one file, English or Dutch column names (built from the format bunq users have documented, not yet verified with a real export)
 
 with plans to add further banks.
 
@@ -139,7 +140,7 @@ If the generic parser cannot identify enough information to interpret the file, 
 
 ## Sample Data
 
-`sample_data/` contains synthetic statements only. Try `multi_account_ing.csv` with `multi_account_revolut.csv` and `ing_savings_sample.csv` for transfers, `rabobank_sample.csv` for a payment and a savings account in one file, `own_account_question_sample.csv` to see Finsight ask whether an account is yours, or `insights_demo.csv` for price changes, new subscriptions and double charges.
+`sample_data/` contains synthetic statements only. Try `multi_account_ing.csv` with `multi_account_revolut.csv` and `ing_savings_sample.csv` for transfers, `rabobank_sample.csv` or `bunq_sample.csv` for a payment and a savings account in one file, `own_account_question_sample.csv` to see Finsight ask whether an account is yours, or `insights_demo.csv` for price changes, new subscriptions and double charges.
 
 ## Privacy
 
@@ -169,7 +170,7 @@ Never commit real bank statements or account details. `.gitignore` excludes comm
     - [ ] Verify ING
     - [ ] ABN AMRO
     - [ ] Verify Rabobank
-    - [ ] Bunq
+    - [ ] Verify bunq
 - [x] Monthly dashboard filter
 - [x] Multi-account upload with transfer and refund detection
 - [x] Recurring subscription detection

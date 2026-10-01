@@ -127,3 +127,30 @@ def test_identical_transactions_get_different_ids():
     df = combine_statements([("a.csv", doubled)])
 
     assert df["transaction_id"].is_unique
+
+
+def test_transactions_without_a_balance_are_all_kept():
+    # bunq exports and older ING exports have no balance. A missing
+    # balance must not make all transactions look like the same one.
+    csv = (
+        '"Datum";"Naam / Omschrijving";"Rekening";"Tegenrekening";"Code";'
+        '"Af Bij";"Bedrag (EUR)";"MutatieSoort";"Mededelingen"\n'
+        '"20190312";"Jumbo Eindhoven";"NL12INGB0123456789";"";"BA";"Af";'
+        '"12,50";"Betaalautomaat";"Pasvolgnr: 001"\n'
+        '"20190311";"Bakkerij Jansen";"NL12INGB0123456789";"";"BA";"Af";'
+        '"4,20";"Betaalautomaat";"Pasvolgnr: 001"\n'
+        '"20190310";"Werkgever BV";"NL12INGB0123456789";"NL03BANK1234567890";'
+        '"OV";"Bij";"850,00";"Overschrijving";"Salaris"\n'
+    )
+
+    _, parsed = parse_statement(csv.encode())
+
+    df = combine_statements([("old_ing.csv", parsed)])
+
+    assert len(df) == 3
+    assert df["transaction_id"].nunique() == 3
+
+    # Uploading the same file twice still removes the duplicates.
+    twice = combine_statements([("a.csv", parsed), ("b.csv", parsed)])
+
+    assert len(twice) == 3

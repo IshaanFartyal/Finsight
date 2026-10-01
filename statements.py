@@ -7,6 +7,7 @@ import io
 
 import pandas as pd
 
+from parsers.bunq import parse_bunq
 from parsers.detector import detect_bank
 from parsers.generic import parse_generic
 from parsers.ing import parse_ing
@@ -20,6 +21,7 @@ PARSERS = {
     "wise": parse_wise,
     "ing": parse_ing,
     "rabobank": parse_rabobank,
+    "bunq": parse_bunq,
 }
 
 # Columns that identify the same transaction appearing in two exports.
@@ -50,6 +52,18 @@ def parse_statement(file_bytes):
     return bank, parser(raw_df)
 
 
+def _as_text(column):
+    """
+    A column as text, with missing values written as "nan".
+
+    Missing values must become real text: bunq exports have no balance
+    at all, and a missing value would otherwise make the whole key
+    missing, so every transaction would look like the same one.
+    """
+
+    return column.astype(str).where(column.notna(), "nan")
+
+
 def combine_statements(statements):
     """
     Combine parsed statements into one table.
@@ -74,10 +88,10 @@ def combine_statements(statements):
         df = df.copy()
         df["source"] = source
 
-        key = df[DUPLICATE_KEY[0]].astype(str)
+        key = _as_text(df[DUPLICATE_KEY[0]])
 
         for column in DUPLICATE_KEY[1:]:
-            key = key + "|" + df[column].astype(str)
+            key = key + "|" + _as_text(df[column])
 
         # 1st, 2nd, 3rd... occurrence of this exact transaction
         # within this file.
