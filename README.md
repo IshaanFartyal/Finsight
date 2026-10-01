@@ -1,10 +1,14 @@
 # Finsight
 
+[![Tests](https://github.com/IshaanFartyal/finsight/actions/workflows/tests.yml/badge.svg)](https://github.com/IshaanFartyal/finsight/actions/workflows/tests.yml)
+
 Finsight is a Python and Streamlit personal finance analytics app that reads your bank statement CSV files, normalizes transactions into a common format, and produces basic spending and savings insights.
 
 Upload statements from all your accounts at once: Finsight combines them and recognizes money moving between your own accounts, so it isn't counted as income or spending.
 
 ## Features
+
+- **Try with demo data**: one click loads made-up statements from an ING and a Revolut account, so you can explore every feature without a bank file. The demo dates move along with the calendar, so it always ends in a recent month
 
 - Automatic bank/export format detection
 - Currently dedicated CSV parsers for Revolut and Wise, with plans to expand
@@ -17,6 +21,10 @@ Upload statements from all your accounts at once: Finsight combines them and rec
     - refunds are deducted from the category they belong to
     - bank fees (Revolut) are counted as expenses
 - Manual corrections: change a transaction's category or type on the Transactions page, for that one transaction or for every transaction from the same merchant. Corrections are remembered (locally, in `corrections.json`) and survive re-uploading the same statements
+- Budgets per category with progress bars, and savings goals turned into "€X/month needed" compared with what you actually save
+- Month-end forecast for an unfinished month: spending so far, recurring payments still due, and everyday spending at your current pace
+- Currency conversion to euros using exchange rates you set (no internet connection needed)
+- Export your categorized, corrected transactions as CSV or Excel (with monthly summary sheets)
 - Settings for your own IBANs, account holder names and transfer keywords, saved locally in `settings.json`
 - Rule-based transaction categorization with word-aware keyword matching
 - User editable categories and keyword rules, saved locally in `rules.json`
@@ -48,19 +56,25 @@ finsight/
 │   ├── categories.py
 │   ├── trends.py
 │   ├── insights_page.py
+│   ├── budgets_page.py
 │   └── settings.py
 ├── pipeline.py         # files -> parsed, categorized, classified transactions
 ├── statements.py       # parse one file, combine several, de-duplicate
 ├── categorizer.py      # keyword rules -> categories
 ├── flows.py            # income / expense / transfer / refund
 ├── corrections.py      # the user's manual corrections
+├── currency.py         # convert foreign currencies to euros
+├── budgets.py          # budgets and savings goals
+├── export.py           # CSV and Excel export
+├── demo.py             # demo statements, dated to end in a recent month
 ├── analytics.py        # income, expenses, savings, spending by category
 ├── insights.py         # spending changes, recurring payments, unusual spending
 ├── charts.py           # Plotly charts
 ├── parsers/            # one parser per bank + generic fallback
 ├── sample_data/        # synthetic statements for testing
 ├── styles/style.css
-└── tests/              # pytest suite
+├── tests/              # pytest suite
+└── .github/workflows/  # runs the tests on every push
 ```
 
 ## Installation
@@ -133,6 +147,14 @@ Each transaction is classified in this order (see `flows.py`):
 
 Try it with `sample_data/multi_account_ing.csv` and `sample_data/multi_account_revolut.csv` uploaded together.
 
+## How the Forecast Works
+
+For a month that isn't over yet, Finsight estimates the total as:
+
+**spent so far + recurring payments still due + everyday spending at your pace so far**
+
+Recurring payments (rent, subscriptions) are counted once on their expected date instead of being projected per day, so rent paid on the 2nd doesn't make the forecast explode. Budgets use the same projection to warn you before a category goes over.
+
 ## How Insights Are Calculated
 
 All insights are calculated in Python (`insights.py`), not generated:
@@ -158,6 +180,8 @@ If the generic parser cannot identify enough information to interpret the file, 
 The `sample_data` folder contains synthetic CSV files for testing. These files contain no real financial information.
 
 ## Privacy
+
+Finsight runs entirely on your own computer. Uploaded statements are analysed in memory by the local Streamlit process; nothing is sent anywhere, and Streamlit's anonymous usage statistics are switched off in `.streamlit/config.toml`. Your rules, settings, corrections and budgets are saved as local JSON files that are excluded from Git.
 
 Bank statements can contain highly sensitive personal and financial information.
 
@@ -186,7 +210,10 @@ The included `.gitignore` excludes common local bank-statement filenames and dat
 - [x] Multi-account upload with transfer and refund detection
 - [x] Recurring subscription detection
 - [x] Unusual spending detection
-- [ ] User-defined budget goals and recommendations
+- [x] Budgets and savings goals
+- [x] Month-end forecast
+- [x] Currency conversion
+- [x] CSV and Excel export
 - [ ] AI integration and financial insights
 
 ## Tech Stack
@@ -194,6 +221,8 @@ The included `.gitignore` excludes common local bank-statement filenames and dat
 - Python
 - pandas
 - Streamlit
+- Plotly
+- pytest, GitHub Actions
 
 ## If you made it this far
 

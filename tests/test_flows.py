@@ -178,6 +178,7 @@ def test_settings_round_trip(tmp_path):
         "own_accounts": ["NL12INGB0123456789"],
         "own_names": ["J de Vries"],
         "transfer_keywords": ["SPAARREKENING"],
+        "exchange_rates": {"USD": 0.92},
     }
 
     save_settings(settings, path)

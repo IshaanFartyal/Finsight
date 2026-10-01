@@ -44,6 +44,9 @@ settings.json
 # Your manual corrections (merchant names, transaction details)
 corrections.json
 
+# Your budgets and savings goals
+budgets.json
+
 # Keep synthetic portfolio samples
 !sample_data/
 !sample_data/*.csv

@@ -14,7 +14,11 @@ import re
 import numpy as np
 import pandas as pd
 
-from analytics import calculate_spending_by_category, calculate_summary
+from analytics import (
+    FEES_CATEGORY,
+    calculate_spending_by_category,
+    calculate_summary,
+)
 from flows import EXPENSE, normalize_merchant as _merchant
 
 # Category changes
@@ -43,6 +47,9 @@ PRICE_CHANGE_MAX_RATIO = 2.0
 # end of the selected month, and not simply where the statement starts.
 NEW_RECURRING_DAYS = 92
 STATEMENT_START_MARGIN_DAYS = 31
+
+# Month-end forecast: with this few days left, the month counts as done.
+FORECAST_MIN_DAYS_REMAINING = 3
 
 # Possible duplicate charges
 DUPLICATE_MAX_DAYS = 2
@@ -277,6 +284,7 @@ def _recurring_series(df):
                 "next_expected": last_date
                 + pd.Timedelta(days=round(days_between.median())),
                 "active": (data_end - last_date).days <= max_gap * 1.5,
+                "interval_days": max(1, round(days_between.median())),
                 "payments": payments,
                 "price_changes": [
                     (payments["date"].iloc[position], old, new)
@@ -465,6 +473,115 @@ def duplicate_charges(df, month):
 
 
 # ============================================================
+# MONTH-END FORECAST
+# ============================================================
+
+def month_end_forecast(df, month):
+    """
+    Projected spending for month, if month is the latest month in the
+    data and the statements end before the month does.
+
+    forecast = spent so far
+             + recurring payments still due this month
+             + everyday (non-recurring) spending at the pace so far
+
+    Splitting it this way keeps rent paid on the 2nd from being
+    projected as if it happened every day.
+
+    Returns None for complete months (or with fewer than 3 days left),
+    otherwise a dict:
+        as_of, days_elapsed, days_in_month, spent_so_far, recurring_due,
+        variable_remaining, forecast, usual, by_category (Series)
+    usual is the average spending of up to 3 earlier months (None if
+    there are no earlier months).
+    """
+
+    if df.empty or month != df["month"].max():
+        return None
+
+    as_of = df["date"].max().normalize()
+    month_end = month.end_time.normalize()
+
+    days_in_month = month.days_in_month
+    days_elapsed = as_of.day
+    days_remaining = days_in_month - days_elapsed
+
+    if as_of >= month_end or days_remaining < FORECAST_MIN_DAYS_REMAINING:
+        return None
+
+    month_df = df[df["month"] == month]
+
+    spent_by_category = calculate_spending_by_category(month_df)
+    spent_so_far = calculate_summary(month_df)["expenses"]
+
+    # Recurring payments still to come before the month ends.
+    series = [
+        item
+        for item in _recurring_series(data_until(df, month))
+        if item["active"]
+    ]
+
+    due_by_category = {}
+
+    for item in series:
+        next_date = item["next_expected"]
+
+        while next_date <= month_end:
+            if next_date > as_of:
+                due_by_category[item["category"]] = (
+                    due_by_category.get(item["category"], 0) + item["amount"]
+                )
+
+            next_date += pd.Timedelta(days=item["interval_days"])
+
+    # Everyday spending so far, without recurring payments.
+    recurring_merchants = {_merchant(item["merchant"]) for item in series}
+
+    expenses = _expenses(month_df)
+    everyday = expenses[
+        ~expenses["description"].apply(_merchant).isin(recurring_merchants)
+    ]
+
+    pace_by_category = (
+        everyday["amount"].abs().groupby(everyday["category"]).sum()
+        / days_elapsed
+    )
+
+    variable_by_category = pace_by_category * days_remaining
+
+    by_category = (
+        spent_by_category.add(pd.Series(due_by_category, dtype=float), fill_value=0)
+        .add(variable_by_category, fill_value=0)
+        .sort_values(ascending=False)
+    )
+
+    recurring_due = float(sum(due_by_category.values()))
+    variable_remaining = float(variable_by_category.sum())
+
+    previous = _previous_months(df, month)
+    usual = (
+        float(np.mean([
+            calculate_summary(df[df["month"] == m])["expenses"]
+            for m in previous
+        ]))
+        if previous
+        else None
+    )
+
+    return {
+        "as_of": as_of,
+        "days_elapsed": days_elapsed,
+        "days_in_month": days_in_month,
+        "spent_so_far": spent_so_far,
+        "recurring_due": recurring_due,
+        "variable_remaining": variable_remaining,
+        "forecast": spent_so_far + recurring_due + variable_remaining,
+        "usual": usual,
+        "by_category": by_category,
+    }
+
+
+# ============================================================
 # 3. UNUSUAL TRANSACTIONS
 # ============================================================
 
@@ -561,7 +678,7 @@ def unusual_transactions(df, month):
 def key_insights(df, month):
     """
     The most notable findings for month, most important first, as dicts:
-        topic  "increase", "unusual", "duplicate", "price_change",
+        topic  "increase", "unusual", "forecast", "duplicate", "price_change",
                "savings", "new_recurring", "decrease" or "recurring"
         kind   "warning", "positive" or "info"
         text   Markdown
@@ -612,6 +729,38 @@ def key_insights(df, month):
                 ),
             }
         )
+
+    # Month-end forecast (only for the latest, unfinished month)
+    forecast = month_end_forecast(df, month)
+
+    if forecast and forecast["usual"]:
+        difference = forecast["forecast"] - forecast["usual"]
+
+        if difference >= max(50, 0.10 * forecast["usual"]):
+            insights.append(
+                {
+                    "topic": "forecast",
+                    "kind": "warning",
+                    "text": (
+                        f"🔮 At your current pace you'll spend about "
+                        f"**€{forecast['forecast']:,.0f}** this month, "
+                        f"€{difference:,.0f} more than usual."
+                    ),
+                }
+            )
+
+        elif difference <= -max(50, 0.10 * forecast["usual"]):
+            insights.append(
+                {
+                    "topic": "forecast",
+                    "kind": "positive",
+                    "text": (
+                        f"🔮 You're on course to spend about "
+                        f"**€{forecast['forecast']:,.0f}** this month, "
+                        f"€{-difference:,.0f} less than usual."
+                    ),
+                }
+            )
 
     # Possible double charges
     duplicates = duplicate_charges(df, month)

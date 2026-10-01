@@ -10,9 +10,11 @@ from charts import (
     create_category_donut,
     create_income_expense_chart,
 )
+from currency import foreign_currencies
 from ui import (
     BANK_NAMES,
     key_insights,
+    month_end_forecast,
     require_data,
     show_insight,
 )
@@ -49,17 +51,24 @@ def render(data):
                 "so results may be less reliable."
             )
 
-        currencies = sorted(
-            currency
-            for currency in df["currency"].dropna().unique()
-            if currency and currency != "Unknown"
+        # Currencies still without an exchange rate (left unconverted)
+        missing_rates = foreign_currencies(df)
+
+        if missing_rates:
+            st.warning(
+                "Some transactions are in "
+                f"{', '.join(missing_rates)}. They are counted as if they "
+                "were euros until you set an exchange rate in Settings."
+            )
+
+        converted = sorted(
+            set(df.loc[df["original_currency"] != df["currency"], "original_currency"])
         )
 
-        if len(currencies) > 1:
-            st.warning(
-                "Your statements contain multiple currencies "
-                f"({', '.join(currencies)}). Totals currently add "
-                "them together without conversion."
+        if converted:
+            st.caption(
+                f"Amounts in {', '.join(converted)} are converted to euros "
+                "using the exchange rates in Settings."
             )
 
         # ----------------------------------------------------
@@ -170,6 +179,33 @@ def render(data):
 
         adjustment_cards = []
 
+        # (label, value, explanation, delta)
+        forecast = month_end_forecast(df, selected_month)
+
+        if forecast:
+            delta = None
+
+            if forecast["usual"]:
+                delta = (
+                    f"{forecast['forecast'] - forecast['usual']:+,.0f} € "
+                    "vs usual"
+                )
+
+            adjustment_cards.append(
+                (
+                    "Projected Spending",
+                    f"€{forecast['forecast']:,.2f}",
+                    f"Estimated total for "
+                    f"{selected_month.strftime('%B')}, based on your "
+                    f"statements up to {forecast['as_of'].strftime('%d %B')}: "
+                    f"€{forecast['spent_so_far']:,.0f} spent so far, "
+                    f"€{forecast['recurring_due']:,.0f} in recurring payments "
+                    f"still due, and €{forecast['variable_remaining']:,.0f} "
+                    "of everyday spending at your current pace.",
+                    delta,
+                )
+            )
+
         if moved > 0:
             adjustment_cards.append(
                 (
@@ -177,6 +213,7 @@ def render(data):
                     f"€{moved:,.2f}",
                     "Transfers between your own accounts. "
                     "Not counted as income or expenses.",
+                    None,
                 )
             )
 
@@ -187,6 +224,7 @@ def render(data):
                     f"€{summary['refunds']:,.2f}",
                     "Money back from merchants. Deducted from "
                     "expenses and from the category it belongs to.",
+                    None,
                 )
             )
 
@@ -197,6 +235,7 @@ def render(data):
                     f"€{summary['fees']:,.2f}",
                     "Fees charged on top of transactions. "
                     "Included in expenses.",
+                    None,
                 )
             )
 
@@ -205,13 +244,16 @@ def render(data):
             # so the cards line up.
             card_columns = st.columns(4)
 
-            for column, (label, value, explanation) in zip(
+            for column, (label, value, explanation, delta) in zip(
                 card_columns,
                 adjustment_cards,
             ):
                 column.metric(
                     label,
                     value,
+                    delta=delta,
+                    # Spending more than usual is shown in red.
+                    delta_color="inverse",
                     help=explanation,
                 )
 

@@ -4,6 +4,7 @@ Transactions page: browse transactions and correct their category or type.
 
 import streamlit as st
 
+from export import excel_available
 from corrections import (
     SCOPE_MERCHANT,
     SCOPE_TRANSACTION,
@@ -14,6 +15,8 @@ from corrections import (
 )
 from ui import (
     FLOW_OPTIONS,
+    export_csv,
+    export_excel,
     month_selector,
     require_data,
 )
@@ -187,6 +190,43 @@ def render(data):
 
     if changed:
         _save_and_refresh(corrections)
+
+    # ----------------------------------------------------
+    # EXPORT
+    # ----------------------------------------------------
+
+    csv_col, excel_col, _ = st.columns([1, 1, 2])
+
+    with csv_col:
+        st.download_button(
+            "⬇ Download CSV",
+            data=export_csv(df),
+            file_name="finsight_transactions.csv",
+            mime="text/csv",
+            help=f"All {len(df)} transactions, with your corrections.",
+        )
+
+    with excel_col:
+        if excel_available():
+            st.download_button(
+                "⬇ Download Excel",
+                data=export_excel(df),
+                file_name="finsight_transactions.xlsx",
+                mime=(
+                    "application/vnd.openxmlformats-officedocument."
+                    "spreadsheetml.sheet"
+                ),
+                help=(
+                    "All transactions plus a monthly summary and spending "
+                    "by category per month."
+                ),
+            )
+
+        else:
+            st.caption(
+                "Excel export needs the openpyxl package: run "
+                "`python -m pip install -r requirements.txt`."
+            )
 
     # ----------------------------------------------------
     # SAVED CORRECTIONS

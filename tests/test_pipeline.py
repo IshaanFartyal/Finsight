@@ -112,3 +112,29 @@ def test_explicit_category_on_a_transfer_is_kept():
     row = corrected[corrected["description"] == "Jumbo"].iloc[0]
 
     assert row["category"] == "Savings"
+
+
+def test_demo_data_loads_and_shows_every_feature():
+    from analytics import calculate_summary
+
+    df, loaded, failed = build_transactions(
+        files("demo_ing.csv", "demo_revolut.csv"),
+        DEFAULT_CATEGORY_RULES,
+        default_settings(),
+        empty_corrections(),
+    )
+
+    assert loaded == {"demo_ing.csv": "ing", "demo_revolut.csv": "revolut"}
+    assert failed == {}
+    assert str(df["month"].min()) == "2026-03"
+    assert str(df["month"].max()) == "2026-09"
+
+    september = calculate_summary(df[df["month"].astype(str) == "2026-09"])
+
+    # Transfers, refunds and fees all appear in September.
+    assert september["transfers_out"] > 0
+    assert september["refunds"] > 0
+    assert september["fees"] > 0
+
+    # The USD pocket needs an exchange rate.
+    assert "USD" in set(df["currency"])

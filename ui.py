@@ -12,6 +12,7 @@ from typing import Optional
 import pandas as pd
 import streamlit as st
 
+import export
 import insights
 
 BANK_NAMES = {
@@ -70,8 +71,23 @@ def duplicate_charges(df, month):
 
 
 @st.cache_data(show_spinner=False)
+def month_end_forecast(df, month):
+    return insights.month_end_forecast(df, month)
+
+
+@st.cache_data(show_spinner=False)
 def key_insights(df, month):
     return insights.key_insights(df, month)
+
+
+@st.cache_data(show_spinner=False)
+def export_csv(df):
+    return export.to_csv_bytes(df)
+
+
+@st.cache_data(show_spinner="Preparing Excel file…")
+def export_excel(df):
+    return export.to_excel_bytes(df)
 
 
 # ============================================================

@@ -372,3 +372,56 @@ def test_demo_key_insights(demo):
     assert "price_change" in july
     assert "duplicate" in august
     assert "new_recurring" in august
+
+
+# ------------------------------------------------------------
+# Month-end forecast
+# ------------------------------------------------------------
+
+from insights import month_end_forecast  # noqa: E402
+
+
+def test_no_forecast_for_complete_months(demo):
+    # The demo statement runs to 30 August: August counts as complete.
+    assert month_end_forecast(demo, month("2026-08")) is None
+    assert month_end_forecast(demo, month("2026-05")) is None
+
+
+def test_forecast_halfway_through_a_month(demo):
+    halfway = demo[demo["date"] <= "2026-08-15"]
+
+    forecast = month_end_forecast(halfway, month("2026-08"))
+
+    assert forecast["days_elapsed"] == 15
+    assert forecast["forecast"] == pytest.approx(
+        forecast["spent_so_far"]
+        + forecast["recurring_due"]
+        + forecast["variable_remaining"]
+    )
+    # Health insurance (27th) and Netflix (18th) are still due.
+    assert forecast["recurring_due"] == pytest.approx(131.40 + 15.99)
+    # Average of May, June and July.
+    assert forecast["usual"] is not None
+
+
+def test_rent_is_not_projected_as_daily_spending(demo):
+    halfway = demo[demo["date"] <= "2026-08-15"]
+
+    forecast = month_end_forecast(halfway, month("2026-08"))
+
+    # Rent was paid once on the 2nd; it must stay €650, not double.
+    assert forecast["by_category"]["Housing"] == pytest.approx(650.0)
+
+
+def test_forecast_category_totals_add_up(demo):
+    halfway = demo[demo["date"] <= "2026-08-15"]
+
+    forecast = month_end_forecast(halfway, month("2026-08"))
+
+    assert forecast["by_category"].sum() == pytest.approx(forecast["forecast"], abs=0.05)
+
+
+def test_forecast_only_for_the_latest_month(demo):
+    halfway = demo[demo["date"] <= "2026-08-15"]
+
+    assert month_end_forecast(halfway, month("2026-07")) is None

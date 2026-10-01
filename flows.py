@@ -46,6 +46,9 @@ DEFAULT_TRANSFER_SETTINGS = {
         "SPAARREKENING",
         "EIGEN REKENING",
     ],
+    # Exchange rates to euros, e.g. {"USD": 0.92} for 1 USD = €0.92.
+    # Used by currency.py; stored here so all settings share one file.
+    "exchange_rates": {},
 }
 
 # Bank transaction types that always mean money moving between the
@@ -74,13 +77,13 @@ TRANSFER_MATCH_DAYS = 3
 
 def default_settings():
     return {
-        key: list(values)
+        key: dict(values) if isinstance(values, dict) else list(values)
         for key, values in DEFAULT_TRANSFER_SETTINGS.items()
     }
 
 
 def load_settings(path=SETTINGS_PATH):
-    """Load saved transfer settings, falling back to the defaults."""
+    """Load saved settings, falling back to the defaults."""
 
     path = Path(path)
     settings = default_settings()
@@ -95,9 +98,14 @@ def load_settings(path=SETTINGS_PATH):
     except (OSError, json.JSONDecodeError):
         return settings
 
-    for key in settings:
-        if isinstance(saved.get(key), list):
-            settings[key] = [str(value) for value in saved[key]]
+    for key, default in settings.items():
+        value = saved.get(key)
+
+        if isinstance(default, list) and isinstance(value, list):
+            settings[key] = [str(item) for item in value]
+
+        elif isinstance(default, dict) and isinstance(value, dict):
+            settings[key] = {str(name): item for name, item in value.items()}
 
     return settings
 

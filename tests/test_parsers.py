@@ -13,6 +13,8 @@ SAMPLES = [
     ("multi_account_ing.csv", "ing", 8),
     ("multi_account_revolut.csv", "revolut", 6),
     ("insights_demo.csv", "unknown", 107),
+    ("demo_ing.csv", "ing", 123),
+    ("demo_revolut.csv", "revolut", 9),
 ]
 
 
