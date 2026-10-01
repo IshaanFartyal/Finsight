@@ -52,6 +52,8 @@ finsight/
 ├── export.py           # CSV and Excel export
 ├── demo.py             # demo statements, dated to end in a recent month
 ├── hosting.py          # hosted mode for the online demo
+├── storage.py          # where your rules, settings and budgets are saved
+├── desktop/            # desktop app: launcher and build files
 ├── analytics.py        # income, expenses, savings, spending by category
 ├── insights.py         # spending changes, recurring payments, unusual spending
 ├── charts.py           # Plotly charts
@@ -92,6 +94,10 @@ streamlit run app.py
 ```
 
 Then open the local Streamlit page in your browser and upload a supported CSV statement.
+
+## Desktop App (Beta)
+
+Finsight can also run in its own window and be built into a Windows program that needs no Python. See [desktop/README.md](desktop/README.md).
 
 ## Run the Tests
 

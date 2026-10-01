@@ -5,6 +5,7 @@ import streamlit as st
 
 from currency import HOME_CURRENCY, clean_rates
 from flows import accounts_to_remember, save_settings, suggest_own_accounts
+from storage import PROJECT_FOLDER, data_dir, delete_user_files, saved_files
 from ui import (
     HOSTED,
     is_private,
@@ -178,6 +179,108 @@ def _render_remember_accounts(df):
     st.rerun()
 
 
+# Kept when saved data is deleted: the uploaded statements and how the
+# session was started. Everything else is rebuilt from the defaults.
+KEEP_AFTER_DELETE = {
+    "bank_statements",
+    "private_mode",
+    "use_demo",
+    "disclaimer_shown",
+}
+
+
+def _render_saved_data():
+    """
+    Let the user delete everything Finsight saved for them: rules,
+    settings, corrections and budgets. Not shown in the online demo,
+    where nothing is saved.
+    """
+    if HOSTED:
+        return
+
+    st.divider()
+
+    st.subheader("Saved data")
+
+    if st.session_state.pop("saved_data_deleted", False):
+        st.success(
+            "Your saved data is deleted. Finsight is back to its default "
+            "categories, with no budgets, corrections or own accounts."
+        )
+
+    failed = st.session_state.pop("saved_data_not_deleted", [])
+
+    if failed:
+        st.error(
+            "These files could not be deleted: "
+            + ", ".join(failed)
+            + f". You can delete them yourself in `{data_dir()}`."
+        )
+
+    st.caption(
+        "Finsight saves your category rules, settings (own accounts, "
+        "names, exchange rates), corrections, and budgets and goals on "
+        "this computer. Your bank statements are never saved."
+    )
+
+    files = saved_files()
+
+    if files:
+        st.caption(f"Saved now, in `{data_dir()}`: " + ", ".join(files) + ".")
+    else:
+        st.caption("Nothing is saved at the moment.")
+
+    if not st.session_state.get("confirm_delete_saved_data"):
+        if st.button(
+            "Delete all saved data…",
+            help=(
+                "Removes your rules, settings, corrections and budgets "
+                "from this computer and from this session. Asks for "
+                "confirmation first."
+            ),
+            key="settings_delete_saved_data",
+        ):
+            st.session_state.confirm_delete_saved_data = True
+            st.rerun()
+
+        return
+
+    st.warning(
+        "Delete all saved data? Your category rules, settings, corrections, "
+        "budgets and goals are removed from this computer and from this "
+        "session, and Finsight goes back to its defaults. Your uploaded "
+        "statements stay loaded. **This can't be undone.**"
+    )
+
+    yes, no, _ = st.columns([1, 1, 3])
+
+    if no.button("Cancel", key="settings_delete_saved_data_cancel"):
+        st.session_state.confirm_delete_saved_data = False
+        st.rerun()
+
+    if not yes.button(
+        "Yes, delete everything",
+        type="primary",
+        key="settings_delete_saved_data_confirm",
+    ):
+        return
+
+    _, failed = delete_user_files()
+
+    # Forget the same things in this session; the app then starts again
+    # from the defaults (or from whatever could not be deleted).
+    st.cache_data.clear()
+
+    for key in list(st.session_state.keys()):
+        if key not in KEEP_AFTER_DELETE:
+            del st.session_state[key]
+
+    st.session_state.saved_data_deleted = not failed
+    st.session_state.saved_data_not_deleted = failed
+
+    st.rerun()
+
+
 def render(data):
     df = data.df
 
@@ -189,6 +292,11 @@ def render(data):
         "Manage your Finsight preferences. "
         + storage_note()
     )
+
+    # The desktop app keeps the user's files in their own data folder;
+    # say where, so they can find or delete them.
+    if not HOSTED and not is_private() and data_dir() != PROJECT_FOLDER:
+        st.caption(f"Your Finsight files are kept in: `{data_dir()}`")
 
     st.subheader(
         "Your Accounts"
@@ -364,3 +472,5 @@ def render(data):
         )
 
         _render_remember_accounts(df)
+
+    _render_saved_data()

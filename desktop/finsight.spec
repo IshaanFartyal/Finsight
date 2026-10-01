@@ -1,6 +1,10 @@
-# Build settings for the Finsight desktop experiment.
+# Build settings for the Finsight desktop app.
 #
-# Run from the project folder:
+# Normally run through desktop/build.py, which also makes the zip:
+#
+#     python desktop/build.py
+#
+# Or directly, from the project folder:
 #
 #     pyinstaller desktop/finsight.spec --noconfirm
 #
@@ -80,6 +84,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name="Finsight",
+    icon=os.path.join(SPECPATH, "finsight.ico"),
     # No black console window behind the app.
     console=False,
 )

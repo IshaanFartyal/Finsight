@@ -1,11 +1,9 @@
-# Finsight desktop experiment
+# Finsight desktop app (beta)
 
-A trial to see what Finsight looks like as a desktop program: the same
-app, shown in its own window instead of a browser tab, and built into a
-program that runs without Python installed.
+The same Finsight, shown in its own window instead of a browser tab, and
+built into a program that runs without Python installed.
 
-Nothing in Finsight itself is changed. `launcher.py` starts the normal
-app in the background and displays it.
+`launcher.py` starts the normal app in the background and displays it.
 
 ## Try the window (no build)
 
@@ -17,26 +15,49 @@ python desktop/launcher.py
 ## Build the program (Windows)
 
 ```powershell
-pyinstaller desktop/finsight.spec --noconfirm
-dist\Finsight\Finsight.exe
+python desktop/build.py
 ```
 
-The whole `dist\Finsight` folder is the program; `Finsight.exe` doesn't
-work without the files next to it.
+This creates:
 
-## What to look at
+- `dist\Finsight\`: the program. `Finsight.exe` needs the files next to
+  it, so always move or share the whole folder.
+- `dist\Finsight-<version>-windows.zip`: the same folder zipped, to send
+  to testers. They unzip it and double-click `Finsight.exe`.
 
-- **Size** of the `dist\Finsight` folder.
-- **Startup time**: from double-click to a usable window.
-- **What breaks**: upload, demo data, every page, CSV/Excel export.
+The version number comes from `version.py` in the project folder.
 
-## Known limits of this experiment
+## Where your files are kept
 
-- **Nothing is saved between runs.** It starts as a private session,
-  because Finsight's settings files would otherwise be written inside
-  the program's own folder. A real desktop version needs a proper place
-  for them (on Windows: `%APPDATA%\Finsight`).
+The desktop app saves your rules, settings, corrections and budgets in
+your own data folder, not next to the program:
+
+| System  | Folder                                    |
+|---------|-------------------------------------------|
+| Windows | `%LOCALAPPDATA%\Finsight`                  |
+| macOS   | `~/Library/Application Support/Finsight`  |
+| Linux   | `~/.local/share/Finsight`                 |
+
+On Windows this is the "Local" folder, which stays on this computer; the
+"Roaming" folder (`%APPDATA%`) can be copied to a server on managed
+networks. Settings shows the exact folder. **Settings > Saved data > Delete all saved data** removes these files
+from inside the app; deleting the folder by hand does the same. Bank
+statements are never saved there or anywhere else.
+
+`finsight.log` in the same folder holds the error messages of the last
+run of the built program; it starts empty on every launch.
+
+Running Finsight the normal way (`streamlit run app.py`) still keeps
+these files in the project folder.
+
+## For testers
+
+- Windows shows "Windows protected your PC" the first time, because the
+  program isn't signed. Choose **More info > Run anyway**.
 - The window uses Microsoft Edge WebView2, which is part of Windows 11
   and most Windows 10 installations.
-- Unsigned programs trigger the Windows "protected your PC" warning on
-  other people's computers.
+
+## Before sharing a build
+
+Test the zip on a computer without Python installed: unzip, start
+`Finsight.exe`, load the demo data, upload a sample file, export.

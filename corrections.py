@@ -22,8 +22,9 @@ from pathlib import Path
 import pandas as pd
 
 from flows import normalize_merchant
+from storage import data_path
 
-CORRECTIONS_PATH = Path(__file__).parent / "corrections.json"
+CORRECTIONS_PATH = data_path("corrections.json")
 
 FIELDS = ("category", "flow")
 

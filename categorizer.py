@@ -4,6 +4,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from storage import data_path
+
 # Keywords per category. When keywords from several categories match,
 # the most specific (longest) keyword wins, so "UBER EATS" is Restaurants
 # even though "UBER" is Transport. Matching ignores upper/lower case.
@@ -149,7 +151,7 @@ SAVINGS_CATEGORY = "Savings & Investments"
 
 # Local, per-user rules file. It can contain personal details
 # (employer, clients), so it is git-ignored.
-RULES_PATH = Path(__file__).parent / "rules.json"
+RULES_PATH = data_path("rules.json")
 
 # Keywords this short must match a whole word: "NS" should match
 # "NS REIZEN" but not "INSURANCE", and "SPAR" not "SPARKASSE".

@@ -15,8 +15,9 @@ from pathlib import Path
 import pandas as pd
 
 from analytics import calculate_summary
+from storage import data_path
 
-BUDGETS_PATH = Path(__file__).parent / "budgets.json"
+BUDGETS_PATH = data_path("budgets.json")
 
 # Average savings are measured over this many complete months.
 SAVINGS_LOOKBACK_MONTHS = 3

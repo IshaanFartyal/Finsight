@@ -1,5 +1,5 @@
 """
-Finsight as a desktop app (experiment).
+Finsight as a desktop app (beta).
 
 Starts the normal Finsight (Streamlit) app in the background and shows
 it in its own window instead of a browser tab. Nothing in Finsight
@@ -9,9 +9,13 @@ Try it without building anything:
 
     python desktop/launcher.py
 
-Build a Windows program from it (see desktop/README.md):
+Build a Windows program and a zip to share (see desktop/README.md):
 
-    pyinstaller desktop/finsight.spec --noconfirm
+    python desktop/build.py
+
+The user's rules, settings, corrections and budgets are kept in their
+own data folder (on Windows: %LOCALAPPDATA%\\Finsight), not next to
+the program.
 
 How it works: this program runs twice. The first copy opens the window.
 It starts a second copy of itself with "--run-server", which runs
@@ -31,6 +35,9 @@ from pathlib import Path
 APP_NAME = "Finsight"
 
 SERVER_FLAG = "--run-server"
+
+# Error messages of the built program, in the user's data folder.
+LOG_FILE = "finsight.log"
 
 # How long to wait for Finsight to start before showing an error.
 STARTUP_TIMEOUT_SECONDS = 90
@@ -54,6 +61,7 @@ ERROR_PAGE = """
                font-family:'Segoe UI', sans-serif;">
     <h2>Finsight could not start</h2>
     <p style="color:#9fb3c8;">{reason}</p>
+    <p style="color:#9fb3c8;">Details may be in: {log}</p>
   </body>
 </html>
 """
@@ -77,6 +85,58 @@ def app_folder():
     return Path(__file__).resolve().parent.parent
 
 
+def version():
+    """Finsight's version number, or "" if it can't be read."""
+
+    folder = str(app_folder())
+
+    if folder not in sys.path:
+        sys.path.insert(0, folder)
+
+    try:
+        from version import __version__
+
+    except ImportError:
+        return ""
+
+    return __version__
+
+
+def window_title():
+    number = version()
+
+    return f"{APP_NAME} {number} (beta)" if number else APP_NAME
+
+
+def user_data_folder(environ=None, platform=None):
+    """
+    Where this user's Finsight files are kept:
+
+    Windows  %LOCALAPPDATA%\\Finsight
+    macOS    ~/Library/Application Support/Finsight
+    Linux    ~/.local/share/Finsight  (or $XDG_DATA_HOME/Finsight)
+    """
+
+    environ = os.environ if environ is None else environ
+    platform = sys.platform if platform is None else platform
+
+    home = Path.home()
+
+    if platform.startswith("win"):
+        # Local, not Roaming (%APPDATA%): on managed work or university
+        # networks, Roaming folders can be copied to a server. Finsight's
+        # files should stay on this computer.
+        base = Path(environ.get("LOCALAPPDATA") or home / "AppData" / "Local")
+
+    elif platform == "darwin":
+        base = home / "Library" / "Application Support"
+
+    else:
+        base = Path(environ.get("XDG_DATA_HOME") or home / ".local" / "share")
+
+    return base / APP_NAME
+
+
 def free_port():
     """A port on this computer that nothing else is using."""
 
@@ -96,17 +156,19 @@ def run_server(port):
     os.chdir(folder)
     sys.path.insert(0, str(folder))
 
-    # A windowed program has no console to print to.
-    if sys.stdout is None:
-        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+    # Finsight saves the user's rules, settings, corrections and budgets
+    # here (see storage.py) instead of inside the program's own folder.
+    data_folder = user_data_folder()
+    data_folder.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("FINSIGHT_DATA_DIR", str(data_folder))
 
-    if sys.stderr is None:
-        sys.stderr = open(os.devnull, "w", encoding="utf-8")
-
-    # In this experiment nothing is saved between runs: inside a built
-    # program, Finsight's settings files would land in the program's own
-    # folder. A real desktop version needs a proper place for them.
-    os.environ.setdefault("FINSIGHT_PRIVATE", "true")
+    # A built program has no console to print to. Error messages go to
+    # a log file instead, so a problem can be looked up afterwards. The
+    # file starts empty on every launch.
+    if sys.stdout is None or sys.stderr is None:
+        log = open(data_folder / LOG_FILE, "w", encoding="utf-8", buffering=1)
+        sys.stdout = sys.stdout or log
+        sys.stderr = sys.stderr or log
 
     from streamlit.web import cli as streamlit_cli
 
@@ -208,7 +270,7 @@ def show_in_window(webview, url, server):
     webview.settings["ALLOW_DOWNLOADS"] = True
 
     window = webview.create_window(
-        APP_NAME,
+        window_title(),
         html=LOADING_PAGE,
         width=1400,
         height=900,
@@ -222,7 +284,12 @@ def show_in_window(webview, url, server):
             wait_until_ready(url, server)
 
         except RuntimeError as error:
-            window.load_html(ERROR_PAGE.format(reason=error))
+            window.load_html(
+                ERROR_PAGE.format(
+                    reason=error,
+                    log=user_data_folder() / LOG_FILE,
+                )
+            )
             return
 
         print(f"{APP_NAME} ready after {time.monotonic() - started:.1f} seconds.")

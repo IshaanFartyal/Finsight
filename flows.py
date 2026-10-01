@@ -34,6 +34,7 @@ from pathlib import Path
 import pandas as pd
 
 from merchants import normalize_merchant as _normalize_merchant
+from storage import data_path
 
 INCOME = "income"
 EXPENSE = "expense"
@@ -41,7 +42,7 @@ TRANSFER = "transfer"
 REFUND = "refund"
 
 # Local, per-user settings. Contains IBANs and names, so it is git-ignored.
-SETTINGS_PATH = Path(__file__).parent / "settings.json"
+SETTINGS_PATH = data_path("settings.json")
 
 DEFAULT_TRANSFER_SETTINGS = {
     # IBANs/account numbers that belong to the user.
