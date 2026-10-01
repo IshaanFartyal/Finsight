@@ -67,6 +67,7 @@ finsight/
 ├── budgets.py          # budgets and savings goals
 ├── export.py           # CSV and Excel export
 ├── demo.py             # demo statements, dated to end in a recent month
+├── hosting.py          # hosted mode for the online demo
 ├── analytics.py        # income, expenses, savings, spending by category
 ├── insights.py         # spending changes, recurring payments, unusual spending
 ├── charts.py           # Plotly charts
@@ -104,6 +105,16 @@ streamlit run app.py
 ```
 
 Then open the local Streamlit page in your browser and upload a supported CSV statement.
+
+## Online Demo
+
+Finsight can run as a public online demo, for example on [Streamlit Community Cloud](https://share.streamlit.io). Set `FINSIGHT_HOSTED = "true"` in the app's secrets to switch on **hosted mode**:
+
+- the demo statements load automatically, with example budgets, a savings goal and an exchange rate;
+- uploading statements is disabled, so nobody sends real bank data to a shared server;
+- nothing is written to disk: each visitor's changes stay in their own browser session.
+
+To analyse your own statements, run Finsight locally as described above.
 
 ## Run the Tests
 

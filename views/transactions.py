@@ -18,7 +18,9 @@ from ui import (
     export_csv,
     export_excel,
     month_selector,
+    persist,
     require_data,
+    storage_note,
 )
 
 # The table editor remembers edits by row position, so each month and
@@ -40,7 +42,7 @@ COLUMNS = [
 
 
 def _save_and_refresh(corrections):
-    save_corrections(corrections)
+    persist(save_corrections, corrections)
     st.session_state.corrections = corrections
 
     # Forget the editors' pending edits: the table is rebuilt from the
@@ -238,8 +240,8 @@ def render(data):
 
         if table.empty:
             st.caption(
-                "You haven't corrected anything yet. Corrections are "
-                "saved on this computer only."
+                "You haven't corrected anything yet. "
+                + storage_note()
             )
             return
 

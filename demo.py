@@ -142,3 +142,39 @@ def demo_files(today=None):
         (DEMO_ING.name, shifted_ing(months)),
         (DEMO_REVOLUT.name, shifted_revolut(months)),
     )
+
+
+# ============================================================
+# EXAMPLE SETTINGS FOR THE ONLINE DEMO
+# ============================================================
+
+# The demo's Revolut account has a USD pocket.
+DEMO_EXCHANGE_RATES = {"USD": 0.92}
+
+
+def demo_budgets(today=None):
+    """
+    A few budgets and a savings goal, so the Budgets & Goals page isn't
+    empty in the online demo. The goal's date moves along with the
+    calendar, like the demo statements.
+    """
+
+    today = pd.Timestamp(today or pd.Timestamp.today()).normalize()
+    deadline = (today + pd.DateOffset(months=9)).replace(day=1)
+
+    return {
+        "budgets": {
+            "Groceries": 175.0,
+            "Restaurants": 100.0,
+            "Shopping": 250.0,
+            "Subscriptions": 40.0,
+        },
+        "goals": [
+            {
+                "name": "Summer trip",
+                "target": 3000.0,
+                "deadline": deadline.strftime("%Y-%m-%d"),
+                "saved": 800.0,
+            },
+        ],
+    }

@@ -8,6 +8,10 @@ from categorizer import (
     DEFAULT_CATEGORY_RULES,
     save_rules,
 )
+from ui import (
+    persist,
+    storage_note,
+)
 
 
 def render(data):
@@ -27,9 +31,9 @@ def render(data):
     st.caption(
         "Categories are checked from top to bottom. "
         "The first category with a matching keyword wins. "
-        "Rules are saved on this computer only. "
         "Corrections you make on the Transactions page "
-        "take priority over these rules."
+        "take priority over these rules. "
+        + storage_note()
     )
 
     rules_before = deepcopy(
@@ -61,7 +65,8 @@ def render(data):
             ] = updated_keywords
 
     if st.session_state.category_rules != rules_before:
-        save_rules(
+        persist(
+            save_rules,
             st.session_state.category_rules
         )
 
@@ -106,7 +111,9 @@ def render(data):
                 new_category
             ] = keyword_list
 
-            save_rules(
+            persist(
+
+                save_rules,
                 st.session_state.category_rules
             )
 
@@ -128,7 +135,9 @@ def render(data):
                 if str(key).startswith("keywords_"):
                     del st.session_state[key]
 
-            save_rules(
+            persist(
+
+                save_rules,
                 st.session_state.category_rules
             )
 

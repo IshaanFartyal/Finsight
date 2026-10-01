@@ -19,6 +19,8 @@ from budgets import (
 from ui import (
     month_end_forecast,
     month_selector,
+    persist,
+    storage_note,
 )
 
 BUDGET_EDITOR_KEY = "budgets_editor"
@@ -29,7 +31,7 @@ NOT_BUDGETABLE = {"Income", "Transfer"}
 
 
 def _save(data, editor_key):
-    save_budgets(data)
+    persist(save_budgets, data)
     st.session_state.budgets = data
 
     # The editor is rebuilt from the saved data on the next run.
@@ -286,8 +288,8 @@ def render(data):
     )
 
     st.caption(
-        "Set monthly limits and savings targets. Saved on this "
-        "computer only."
+        "Set monthly limits and savings targets. "
+        + storage_note()
     )
 
     budgets_data = st.session_state.budgets

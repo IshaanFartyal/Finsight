@@ -12,12 +12,13 @@ import json
 import streamlit as st
 
 from budgets import load_budgets
-from categorizer import load_rules
-from corrections import load_corrections
-from demo import demo_files
-from flows import load_settings
+from categorizer import DEFAULT_CATEGORY_RULES, load_rules
+from corrections import empty_corrections, load_corrections
+from demo import DEMO_EXCHANGE_RATES, demo_budgets, demo_files
+from flows import default_settings, load_settings
+from hosting import DISCLAIMER, DISCLAIMER_TITLE, SIDEBAR_NOTICE
 from pipeline import build_monthly_finances, build_transactions
-from ui import AppData
+from ui import HOSTED, AppData
 from views import (
     budgets_page,
     categories,
@@ -60,19 +61,40 @@ with open("styles/style.css", encoding="utf-8") as css_file:
 # SESSION STATE
 # ============================================================
 
-# Each is loaded from its local JSON file if it exists, so
-# customizations survive a page refresh.
-if "category_rules" not in st.session_state:
-    st.session_state.category_rules = load_rules()
+def initial_state():
+    """
+    Locally: everything is loaded from its JSON file (if it exists), so
+    customizations survive a page refresh.
 
-if "transfer_settings" not in st.session_state:
-    st.session_state.transfer_settings = load_settings()
+    Online demo: every visitor starts fresh, with example budgets, a
+    savings goal and an exchange rate for the demo's USD account. No
+    files are read or written.
+    """
+    if HOSTED:
+        settings = default_settings()
+        settings["exchange_rates"] = dict(DEMO_EXCHANGE_RATES)
 
-if "corrections" not in st.session_state:
-    st.session_state.corrections = load_corrections()
+        return {
+            "category_rules": {
+                category: list(keywords)
+                for category, keywords in DEFAULT_CATEGORY_RULES.items()
+            },
+            "transfer_settings": settings,
+            "corrections": empty_corrections(),
+            "budgets": demo_budgets(),
+        }
 
-if "budgets" not in st.session_state:
-    st.session_state.budgets = load_budgets()
+    return {
+        "category_rules": load_rules(),
+        "transfer_settings": load_settings(),
+        "corrections": load_corrections(),
+        "budgets": load_budgets(),
+    }
+
+
+for key, value in initial_state().items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
 
 # ============================================================
@@ -102,23 +124,32 @@ page = st.sidebar.radio(
 
 st.sidebar.divider()
 
-uploaded_files = st.sidebar.file_uploader(
-    "Import bank statements",
-    type=["csv"],
-    accept_multiple_files=True,
-    key="bank_statements",
-    help=(
-        "Upload statements from all your accounts at once. "
-        "Transfers between them are recognized and left out "
-        "of income and expenses."
-    ),
-)
+if HOSTED:
+    # Online demo: no uploads, so nobody sends a real bank statement
+    # to a shared server. The demo data is always shown.
+    uploaded_files = []
+    st.session_state.use_demo = True
+
+    st.sidebar.warning(SIDEBAR_NOTICE)
+
+else:
+    uploaded_files = st.sidebar.file_uploader(
+        "Import bank statements",
+        type=["csv"],
+        accept_multiple_files=True,
+        key="bank_statements",
+        help=(
+            "Upload statements from all your accounts at once. "
+            "Transfers between them are recognized and left out "
+            "of income and expenses."
+        ),
+    )
 
 if "use_demo" not in st.session_state:
     st.session_state.use_demo = False
 
 # Uploaded statements always take priority over the demo.
-if not uploaded_files:
+if not uploaded_files and not HOSTED:
     if st.session_state.use_demo:
         st.sidebar.info(
             "Showing **demo data**: made-up statements from an ING and a "
@@ -199,6 +230,25 @@ if files:
         monthly_finances=monthly_finances,
         loaded_files=loaded_files,
     )
+
+
+# ============================================================
+# ONLINE DEMO DISCLAIMER
+# ============================================================
+
+@st.dialog(DISCLAIMER_TITLE)
+def show_disclaimer():
+    st.markdown(DISCLAIMER)
+
+    if st.button("I understand, show me the demo", type="primary"):
+        st.rerun()
+
+
+# Shown once per visit. Closing it any way (button, ✕ or Esc) counts,
+# so it never blocks the demo; the sidebar keeps a short reminder.
+if HOSTED and not st.session_state.get("disclaimer_shown"):
+    st.session_state.disclaimer_shown = True
+    show_disclaimer()
 
 
 # ============================================================

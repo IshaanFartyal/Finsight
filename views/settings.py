@@ -5,7 +5,12 @@ import streamlit as st
 
 from currency import HOME_CURRENCY, clean_rates
 from flows import save_settings
-from ui import parse_lines
+from ui import (
+    HOSTED,
+    parse_lines,
+    persist,
+    storage_note,
+)
 
 
 def render(data):
@@ -17,7 +22,7 @@ def render(data):
 
     st.caption(
         "Manage your Finsight preferences. "
-        "Settings are saved on this computer only."
+        + storage_note()
     )
 
     st.subheader(
@@ -30,6 +35,13 @@ def render(data):
         "automatically when you upload statements from all your "
         "accounts. These settings catch the rest."
     )
+
+    if HOSTED:
+        st.warning(
+            "⚠️ This is the online demo: don't enter your real account "
+            "numbers or name here. Try it with made-up ones, e.g. "
+            "NL00 DEMO 0123 4567 89."
+        )
 
     settings = st.session_state.transfer_settings
 
@@ -69,7 +81,7 @@ def render(data):
 
     if updated_settings != settings:
         st.session_state.transfer_settings = updated_settings
-        save_settings(updated_settings)
+        persist(save_settings, updated_settings)
         st.rerun()
 
     # ----------------------------------------------------
@@ -143,7 +155,7 @@ def render(data):
                 "exchange_rates": updated_rates,
             }
             st.session_state.transfer_settings = new_settings
-            save_settings(new_settings)
+            persist(save_settings, new_settings)
             st.rerun()
 
         missing = [code for code in currencies if code not in updated_rates]

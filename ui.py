@@ -13,6 +13,7 @@ import pandas as pd
 import streamlit as st
 
 import export
+import hosting
 import insights
 
 BANK_NAMES = {
@@ -88,6 +89,36 @@ def export_csv(df):
 @st.cache_data(show_spinner="Preparing Excel file…")
 def export_excel(df):
     return export.to_excel_bytes(df)
+
+
+# ============================================================
+# HOSTED MODE (online demo)
+# ============================================================
+
+def _detect_hosted():
+    try:
+        secrets = st.secrets
+    except Exception:
+        secrets = None
+
+    return hosting.is_hosted(secrets=secrets)
+
+
+# Decided once when the app starts.
+HOSTED = _detect_hosted()
+
+
+def persist(save, data):
+    """
+    Save data with the given save function, except in the online demo,
+    where changes stay in the visitor's session only.
+    """
+    return hosting.save_if_local(save, data, HOSTED)
+
+
+def storage_note():
+    """Caption text saying where changes are kept."""
+    return hosting.storage_note(HOSTED)
 
 
 # ============================================================
