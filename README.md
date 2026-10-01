@@ -10,7 +10,7 @@ Upload statements from all your accounts at once: Finsight combines them and rec
 
 **[Try Finsight in your browser →](https://finsight-live.streamlit.app/)**
 
-The demo runs on made-up statements from an ING and a Revolut account. Uploads are switched off and nothing is stored, so please don't enter real data there. To analyse your own statements, run Finsight on your own computer (see below).
+The demo runs on made-up statements from an ING and a Revolut account. Uploads are switched off and nothing is stored, so please don't enter real data there. To analyze your own statements, run Finsight on your own computer (see below).
 
 ## Features
 
@@ -138,7 +138,7 @@ If the generic parser cannot identify enough information to interpret the file, 
 
 ## Privacy
 
-Finsight runs entirely on your own computer: statements are analysed in memory, nothing is sent anywhere, and Streamlit's usage statistics are switched off. Your rules, settings, corrections and budgets are saved as local JSON files, excluded from Git.
+Finsight runs entirely on your own computer: statements are analyzed in memory, nothing is sent anywhere, and Streamlit's usage statistics are switched off. Your rules, settings, corrections and budgets are saved as local JSON files, excluded from Git.
 
 - **Private session**: switch on "🔒 Private session" in the sidebar and nothing is written to disk. "Clear everything from memory" removes your statements and changes immediately. To make it the default, add `FINSIGHT_PRIVATE = "true"` to `~/.streamlit/secrets.toml`.
 - **Local connections only**: Streamlit also accepts connections from other devices on your network by default. To prevent that, add this to `~/.streamlit/config.toml` (your personal config, not the project's):
