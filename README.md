@@ -22,12 +22,13 @@ The demo runs on made-up statements from an ING and a Revolut account. Uploads a
 - **Income, expense, transfer or refund**: transfers between your own accounts (including investments such as DEGIRO) are left out of income and spending; refunds reduce the category they belong to; bank fees count as expenses.
 - **Categorization**: 93 keywords in 16 categories, matched on cleaned merchant names (`SumUp *Bakkerij Jansen B.V.` → `Bakkerij Jansen`).
 - **To Review**: every unrecognized merchant is listed once; one choice categorizes all its transactions, now and in future uploads.
-- **Your accounts**: the accounts of the statements you upload count as yours, so upload only your own statements in one session. For any other account that looks like yours (money regularly goes both ways), Finsight asks first.
+- **Your accounts**: the accounts of the statements you upload count as yours, so upload only your own statements in one session. For any other account that looks like yours (money regularly goes both ways), Finsight asks first. Remembering accounts between sessions is opt-in.
 - **Corrections**: fix a category or type per transaction or per merchant; Finsight remembers it.
 - **Insights**: spending vs. your 3-month average, recurring payments and price changes, new subscriptions, unusual spending and possible double charges.
 - **Budgets & goals**: monthly budgets per category, savings goals, and a month-end spending forecast.
 - **Currency conversion** with your own exchange rates, and **CSV/Excel export**.
-- **Private by design**: runs locally, optional private sessions that never write to disk, no usage statistics.
+- **Private by design**: runs locally, optional private sessions that never write to disk, one button to delete everything saved, no usage statistics.
+- **Desktop app (beta)**: the same Finsight in its own window, as a Windows program that needs no Python.
 - **Demo data** button to explore everything without a bank file.
 
 ## Project Structure
@@ -57,6 +58,7 @@ finsight/
 ├── demo.py             # demo statements, dated to end in a recent month
 ├── hosting.py          # hosted mode for the online demo
 ├── storage.py          # where your rules, settings and budgets are saved
+├── version.py          # version number, shown in the desktop app
 ├── desktop/            # desktop app: launcher and build files
 ├── analytics.py        # income, expenses, savings, spending by category
 ├── insights.py         # spending changes, recurring payments, unusual spending
@@ -142,7 +144,7 @@ Current supported CSV formats are:
 - Rabobank: payment and savings accounts, several accounts in one file (built from Rabobank's documented format, not yet verified with a real export)
 - bunq: several sub-accounts in one file, English or Dutch column names (built from the format bunq users have documented, not yet verified with a real export)
 
-with plans to add further banks.
+ABN AMRO may follow, but no promises. It does not export in CSV, which makes it tedious to work with.
 
 If the bank is not recognized, Finsight attempts to interpret the file using a generic CSV parser. Generic-parser results are explicitly marked as coming from an undetected bank and may be less reliable.
 
@@ -154,7 +156,7 @@ If the generic parser cannot identify enough information to interpret the file, 
 
 ## Privacy
 
-Finsight runs entirely on your own computer: statements are analyzed in memory, nothing is sent anywhere, and Streamlit's usage statistics are switched off. Your rules, settings, corrections and budgets are saved as local JSON files, excluded from Git.
+Finsight runs entirely on your own computer: statements are analyzed in memory, nothing is sent anywhere, and Streamlit's usage statistics are switched off. Your rules, settings, corrections and budgets are saved as local JSON files: in the project folder (excluded from Git), or in `%LOCALAPPDATA%\Finsight` for the desktop app. **Settings → Saved data** deletes them all.
 
 - **Private session**: switch on "🔒 Private session" in the sidebar and nothing is written to disk. "Clear everything from memory" removes your statements and changes immediately. To make it the default, add `FINSIGHT_PRIVATE = "true"` to `~/.streamlit/secrets.toml`.
 - **Local connections only**: Streamlit also accepts connections from other devices on your network by default. To prevent that, add this to `~/.streamlit/config.toml` (your personal config, not the project's):
@@ -178,7 +180,7 @@ Never commit real bank statements or account details. `.gitignore` excludes comm
 
 - [ ] Additional bank integrations
     - [ ] Verify ING
-    - [ ] ABN AMRO
+    - [ ] ABN AMRO (maybe: it has no CSV export)
     - [ ] Verify Rabobank
     - [ ] Verify bunq
 - [x] Monthly dashboard filter
@@ -190,6 +192,7 @@ Never commit real bank statements or account details. `.gitignore` excludes comm
 - [x] Currency conversion
 - [x] CSV and Excel export
 - [x] Online demo
+- [x] Desktop app (Windows beta)
 - [ ] AI integration and financial insights
 
 ## Tech Stack
@@ -198,6 +201,7 @@ Never commit real bank statements or account details. `.gitignore` excludes comm
 - pandas
 - Streamlit
 - Plotly
+- pywebview, PyInstaller (desktop app)
 - pytest, GitHub Actions
 
 ## If you made it this far
