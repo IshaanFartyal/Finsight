@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="desktop/finsight.png" alt="Finsight logo" width="120">
+</p>
+
 # Finsight
 
 [![Tests](https://github.com/IshaanFartyal/finsight/actions/workflows/tests.yml/badge.svg)](https://github.com/IshaanFartyal/finsight/actions/workflows/tests.yml)
